@@ -1,0 +1,43 @@
+﻿namespace Payments_core.Models
+{
+    public class Roles
+    {
+        public int Id { get; set; }
+        public required  string RoleName { get; set; }
+        public required  string Description { get; set; }
+    }
+    public class Provider
+    {
+        public int Id { get; set; }
+        public required string ProviderCode { get; set; }
+        public required string ProviderName { get; set; }
+        public required string ProviderType { get; set; } // JSON as required string
+        public required string IsActive { get; set; }
+        
+    }
+    public class CommissionScheme
+    {
+        public int Id { get; set; }
+        public required string SchemeCode { get; set; }
+        public required string Description { get; set; }
+        public required string CommissionType { get; set; }
+        public decimal CommissionValue { get; set; }
+    }
+    public class MdrPricing
+    {
+        public int Id { get; set; }
+        public required string ProductType { get; set; }
+        public decimal MinAmount { get; set; }
+        public decimal MaxAmount { get; set; }
+        public decimal MdrPercent { get; set; }
+        public decimal MdrFixed { get; set; }
+    }
+    public class Biller
+    {
+        public long Id { get; set; }
+        public required string BillerCode { get; set; }
+        public required string BillerName { get; set; }
+        public required string Category { get; set; }
+        public required string IsActive { get; set; }
+    }
+}
