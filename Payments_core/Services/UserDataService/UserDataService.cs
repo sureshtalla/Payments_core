@@ -65,9 +65,18 @@ namespace Payments_core.Services.UserDataService
 
             return true;
         }
+        //public bool VerifyPassword(string plain, string hash)
+        //{
+        //    return BCrypt.Net.BCrypt.Verify(plain, hash);
+        //}
+
         public bool VerifyPassword(string plain, string hash)
         {
+            if (string.IsNullOrWhiteSpace(plain) || string.IsNullOrWhiteSpace(hash))
+                return false;
+
             return BCrypt.Net.BCrypt.Verify(plain, hash);
         }
+
     }
 }
