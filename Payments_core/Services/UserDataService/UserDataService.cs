@@ -29,7 +29,7 @@ namespace Payments_core.Services.UserDataService
             param.Add("p_new_id", dbType: System.Data.DbType.Int64, direction: System.Data.ParameterDirection.Output);
 
             // ✅ Use SetData instead of Execute
-            await _dbContext.SetData("sp1_user_register", param);
+            await _dbContext.SetData("sp_user_register", param);
 
             return param.Get<long>("p_new_id");
         }
@@ -39,7 +39,7 @@ namespace Payments_core.Services.UserDataService
             var param = new DynamicParameters();
             param.Add("p_username", UserName);
 
-            var data = await _dbContext.GetData<UserProfileResponse>("sp1_user_login", param);
+            var data = await _dbContext.GetData<UserProfileResponse>("sp_user_login", param);
             return data.FirstOrDefault();
         }
 
@@ -48,7 +48,7 @@ namespace Payments_core.Services.UserDataService
             var param = new DynamicParameters();
             param.Add("p_id", id);
 
-            var data = await _dbContext.GetData<UserProfileResponse>("sp1_user_get_profile", param);
+            var data = await _dbContext.GetData<UserProfileResponse>("sp_user_get_profile", param);
             return data.FirstOrDefault();
         }
 
@@ -61,7 +61,7 @@ namespace Payments_core.Services.UserDataService
             param.Add("p_tin_no", request.TinNo);
 
             // ✅ Use SetData instead of Execute
-            await _dbContext.SetData("sp1_user_update_profile", param);
+            await _dbContext.SetData("sp_user_update_profile", param);
 
             return true;
         }
