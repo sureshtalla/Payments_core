@@ -1,8 +1,10 @@
 ﻿
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Payments_core.Controllers;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.MasterDataService;
+using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using System.Text;
 //using Payments_core.Services.OtpDataService; 
@@ -33,6 +35,8 @@ namespace Payments_core
 
             // OTP service (needed for verify-otp endpoint)
             builder.Services.AddScoped<IOtpService, OtpService>();
+            builder.Services.AddScoped<ISuperDistributorService, SuperDistributorService>();
+            
             // === CORS ===
             builder.Services.AddCors(options =>
             {
