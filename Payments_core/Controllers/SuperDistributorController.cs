@@ -25,16 +25,20 @@ namespace Payments_core.Controllers
             });
         }
 
-        // 🔵 Get full onboarding info by user id
-        [HttpGet("{userId}")]
-        public async Task<IActionResult> GetFull(long userId)
+        [HttpGet("cards/{roleId}")]
+        public async Task<IActionResult> GetCards(int roleId)
         {
-            var result = await _service.GetFullByUserIdAsync(userId);
-
-            if (result == null)
-                return NotFound(new { message = "User not found" });
-
-            return Ok(result);
+            var data = await _service.GetCardsAsync(roleId);
+            return Ok(data);
         }
+
+        [HttpGet("card/{userId}/{roleId}")]
+        public async Task<IActionResult> GetCard( int roleId, long userId)
+        {
+            var data = await _service.GetCardAsync( roleId, userId);
+            return Ok(data);
+        }
+
+
     }
 }

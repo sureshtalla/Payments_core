@@ -96,6 +96,22 @@ namespace Payments_core.Services.SuperDistributorService
                 Documents = docs
             };
         }
+        public async Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId)
+        {
+            var param = new { p_role_id = roleId };
+            return await _dbContext.GetData<SuperDistributorCardDto>(
+                "sp_user_cards_get_all",
+                param
+            );
+        }
+
+        public async Task<uperDistributorProfileDto?> GetCardAsync(  int roleId, long userId)
+        {
+            var param = new { p_user_id = userId, p_role_id = roleId };
+            var result = await _dbContext.GetData<uperDistributorProfileDto>("sp_user_card_get_one", param);
+            return result.FirstOrDefault();
+        }
+
 
     }
 }
