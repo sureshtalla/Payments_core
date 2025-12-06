@@ -29,5 +29,14 @@ namespace Payments_core.Controllers
             return Ok(new { success = true });
         }
 
+
+        [HttpPost("merchant/kyc/update")]
+        public async Task<IActionResult> UpdateMerchantKyc([FromBody] MerchantKycUpdateRequest req)
+        {
+            var result = await _service.UpdateMerchantKycStatusAsync(req);
+            return Ok(new { success = true });
+        }
+
+
     }
 }
