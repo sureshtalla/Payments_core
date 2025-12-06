@@ -12,31 +12,31 @@
         public required string Password { get; set; }
 
         // MERCHANT
-        public required string LegalName { get; set; }
-        public required string TradeName { get; set; }
-        public required string BusinessType { get; set; }
-        public required string Category { get; set; }
-        public required string WebsiteUrl { get; set; }
-        public required string SettlementProfile { get; set; }
-        public required string EnabledProducts { get; set; }
+        //public required string LegalName { get; set; }
+       // public required string TradeName { get; set; }
+        //public required string BusinessType { get; set; }
+        //public required string Category { get; set; }
+        //public required string WebsiteUrl { get; set; }
+        //public required string SettlementProfile { get; set; }
+        //public required string EnabledProducts { get; set; }
 
         // KYC PROFILE
         public required string PanNumber { get; set; }
         public required string AadhaarLast4 { get; set; }
-        public required string Gstin { get; set; }
+        //public required string Gstin { get; set; }
         public required string Address1 { get; set; }
-        public required string Address2 { get; set; }
-        public required string City { get; set; }
-        public required string State { get; set; }
-        public required string Pincode { get; set; }
-        public required string BankAccountNo { get; set; }
-        public required string BankIfsc { get; set; }
+        //public required string Address2 { get; set; }
+        //public required string City { get; set; }
+        //public required string State { get; set; }
+        //public required string Pincode { get; set; }
+        //public required string BankAccountNo { get; set; }
+        //public required string BankIfsc { get; set; }
 
         // DOCUMENT URLS (after upload)
         public required string PanUrl { get; set; }
         public required string AadhaarUrl { get; set; }
-        public required string GstUrl { get; set; }
-        public required string BankUrl { get; set; }
+        //public required string GstUrl { get; set; }
+        //public required string BankUrl { get; set; }
     }
 
     public class SuperDistributorResponse
