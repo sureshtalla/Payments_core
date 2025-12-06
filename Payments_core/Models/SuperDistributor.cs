@@ -35,7 +35,7 @@
         // DOCUMENT URLS (after upload)
         public required string PanUrl { get; set; }
         public required string AadhaarUrl { get; set; }
-       public required string user_id { get; set; }
+       public int user_id { get; set; }
         
         //public required string GstUrl { get; set; }
         //public required string BankUrl { get; set; }
