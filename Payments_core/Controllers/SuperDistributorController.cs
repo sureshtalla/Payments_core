@@ -25,17 +25,17 @@ namespace Payments_core.Controllers
             });
         }
 
-        [HttpGet("cards/{roleId}")]
+        [HttpGet("GetCards/{roleId}")]
         public async Task<IActionResult> GetCards(int roleId)
         {
             var data = await _service.GetCardsAsync(roleId);
             return Ok(data);
         }
 
-        [HttpGet("card/{userId}/{roleId}")]
-        public async Task<IActionResult> GetCard( int roleId, long userId)
+        [HttpGet("GetCardDetailedInfo/{roleId}/{userId}")]
+        public async Task<IActionResult> GetCardDetailedInfo( int roleId, long userId)
         {
-            var data = await _service.GetCardAsync( roleId, userId);
+            var data = await _service.GetCardDetailedInfo( roleId, userId);
             return Ok(data);
         }
 

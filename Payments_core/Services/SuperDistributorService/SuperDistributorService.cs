@@ -105,7 +105,7 @@ namespace Payments_core.Services.SuperDistributorService
             );
         }
 
-        public async Task<uperDistributorProfileDto?> GetCardAsync(  int roleId, long userId)
+        public async Task<uperDistributorProfileDto?> GetCardDetailedInfo(  int roleId, long userId)
         {
             var param = new { p_user_id = userId, p_role_id = roleId };
             var result = await _dbContext.GetData<uperDistributorProfileDto>("sp_user_card_get_one", param);
