@@ -31,10 +31,12 @@
         //public required string Pincode { get; set; }
         //public required string BankAccountNo { get; set; }
         //public required string BankIfsc { get; set; }
-
+        public bool isAuthorVerified { get; set; }
         // DOCUMENT URLS (after upload)
         public required string PanUrl { get; set; }
         public required string AadhaarUrl { get; set; }
+       public required string user_id { get; set; }
+        
         //public required string GstUrl { get; set; }
         //public required string BankUrl { get; set; }
     }
@@ -89,6 +91,8 @@
         public required string RiskLevel { get; set; }
         public required string Status { get; set; }
         public required string Notes { get; set; }
+       
+        
     }
     public class KycDocument
     {
