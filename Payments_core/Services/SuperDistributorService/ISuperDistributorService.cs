@@ -10,7 +10,7 @@ namespace Payments_core.Services.SuperDistributorService
             Task<SuperDistributorFullResponse> GetFullByUserIdAsync(long userId);
 
         Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId);
-        Task<uperDistributorProfileDto?> GetCardAsync( int roleId, long userId);
+        Task<uperDistributorProfileDto?> GetCardDetailedInfo( int roleId, long userId);
 
 
     }
