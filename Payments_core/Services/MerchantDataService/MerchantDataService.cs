@@ -29,6 +29,16 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.ExecuteStoredAsync("sp_merchant_approval_update", param);
         }
 
+        public async Task<int> UpdateMerchantKycStatusAsync(MerchantKycUpdateRequest req)
+        {
+            var param = new
+            {
+                p_merchant_id = req.MerchantId,
+                p_status = req.KycStatus
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_merchant_kyc_update", param);
+        }
 
     }
 }

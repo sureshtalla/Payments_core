@@ -17,7 +17,13 @@
         public string Action { get; set; } // APPROVE or REJECT
         public string? Remarks { get; set; }  // Required for REJECT
     }
-   
+    public class MerchantKycUpdateRequest
+    {
+        public long MerchantId { get; set; }
+        public string KycStatus { get; set; }   // PENDING/VERIFIED/REJECTED/APPROVED
+     
+
+    }
 
 
 }
