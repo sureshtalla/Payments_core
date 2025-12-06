@@ -8,5 +8,10 @@ namespace Payments_core.Services.SuperDistributorService
             Task<(long userId, long merchantId)> CreateFullOnboardingAsync(SuperDistributorRequest req);
 
             Task<SuperDistributorFullResponse> GetFullByUserIdAsync(long userId);
+
+        Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId);
+        Task<uperDistributorProfileDto?> GetCardAsync( int roleId, long userId);
+
+
     }
 }

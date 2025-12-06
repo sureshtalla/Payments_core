@@ -108,4 +108,36 @@
         public KycProfile? Profile { get; set; }
         public List<KycDocument>? Documents { get; set; }
     }
+
+
+    public class SuperDistributorCardDto
+    {
+        public int UserId { get; set; }
+        public string FullName { get; set; }
+        public string BusinessName { get; set; }
+        public string Email { get; set; }
+        public string BusinessAddress { get; set; }
+        public string Mobile { get; set; }
+        public string KycStatus { get; set; }   // Pending / Verified / Rejected
+        public string Status { get; set; }      // Active / Suspended / Inactive
+    }
+
+    public class uperDistributorProfileDto
+    {
+        public long UserId { get; set; }
+        public int RoleId { get; set; }
+        public long ParentUserId { get; set; }
+        public string FullName { get; set; }
+        public string BusinessName { get; set; }
+        public string Email { get; set; }
+        public string Mobile { get; set; }
+        public string Password { get; set; }
+        public string PanNumber { get; set; }
+        public string AadhaarLast4 { get; set; }
+        public string Address1 { get; set; }
+        public bool IsAuthorVerified { get; set; }
+        public string PanUrl { get; set; }
+        public string AadhaarUrl { get; set; }
+    }
+
 }
