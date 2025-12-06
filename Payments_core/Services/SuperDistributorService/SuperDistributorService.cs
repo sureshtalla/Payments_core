@@ -31,31 +31,31 @@ namespace Payments_core.Services.SuperDistributorService
             param.Add("p_password_hash", BCrypt.Net.BCrypt.HashPassword(req.Password));
 
             // MERCHANT
-            param.Add("p_legal_name", req.LegalName);
-            param.Add("p_trade_name", req.TradeName);
-            param.Add("p_business_type", req.BusinessType);
-            param.Add("p_category", req.Category);
-            param.Add("p_website_url", req.WebsiteUrl);
-            param.Add("p_settlement_profile", req.SettlementProfile);
-            param.Add("p_enabled_products", req.EnabledProducts);
+           // param.Add("p_legal_name", req.LegalName);
+           // param.Add("p_trade_name", req.TradeName);
+            //param.Add("p_business_type", req.BusinessType);
+            //param.Add("p_category", req.Category);
+            //param.Add("p_website_url", req.WebsiteUrl);
+            //param.Add("p_settlement_profile", req.SettlementProfile);
+            //param.Add("p_enabled_products", req.EnabledProducts);
 
             // KYC PROFILE
             param.Add("p_pan", req.PanNumber);
             param.Add("p_aadhaar4", req.AadhaarLast4);
-            param.Add("p_gstin", req.Gstin);
+           // param.Add("p_gstin", req.Gstin);
             param.Add("p_addr1", req.Address1);
-            param.Add("p_addr2", req.Address2);
-            param.Add("p_city", req.City);
-            param.Add("p_state", req.State);
-            param.Add("p_pincode", req.Pincode);
-            param.Add("p_bank_acc", req.BankAccountNo);
-            param.Add("p_bank_ifsc", req.BankIfsc);
+            //param.Add("p_addr2", req.Address2);
+            //param.Add("p_city", req.City);
+            //param.Add("p_state", req.State);
+            //param.Add("p_pincode", req.Pincode);
+            //param.Add("p_bank_acc", req.BankAccountNo);
+            //param.Add("p_bank_ifsc", req.BankIfsc);
 
             // KYC DOCUMENT URLS
             param.Add("p_pan_url", req.PanUrl);
             param.Add("p_aadhaar_url", req.AadhaarUrl);
-            param.Add("p_gst_url", req.GstUrl);
-            param.Add("p_bank_url", req.BankUrl);
+           // param.Add("p_gst_url", req.GstUrl);
+            //param.Add("p_bank_url", req.BankUrl);
 
             // OUTPUT VALUES
             param.Add("o_user_id", dbType: DbType.Int64, direction: ParameterDirection.Output);

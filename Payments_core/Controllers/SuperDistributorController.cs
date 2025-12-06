@@ -5,7 +5,7 @@ using Payments_core.Services.SuperDistributorService;
 namespace Payments_core.Controllers
 {
     [ApiController]
-    [Route("api/users")]
+    [Route("api/superdistributor")]
     public class SuperDistributorController : Controller
     {
         private readonly ISuperDistributorService _service;
