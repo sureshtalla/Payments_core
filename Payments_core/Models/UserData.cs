@@ -37,6 +37,10 @@
         public required string Token { get; set; } // only for login
         public required string password_hash { get; set; } // only for login
 
+        public int failed_attempts { get; set; }
+        public bool is_blocked { get; set; }
+        public DateTime? blocked_until { get; set; }
+
     }
 
     public class UserUpdateProfileRequest

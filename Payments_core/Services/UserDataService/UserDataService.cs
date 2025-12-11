@@ -78,5 +78,19 @@ namespace Payments_core.Services.UserDataService
             return BCrypt.Net.BCrypt.Verify(plain, hash);
         }
 
+        public async Task<bool> UpdateLoginAttemptAsync(UserProfileResponse user)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_id", user.Id);
+            param.Add("p_failed_attempts", user.failed_attempts);
+            param.Add("p_is_blocked", user.is_blocked);
+            param.Add("p_blocked_until", user.blocked_until);
+
+            await _dbContext.SetData("sp_user_update_login_attempt", param);
+
+            return true;
+        }
+
+
     }
 }
