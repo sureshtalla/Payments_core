@@ -72,5 +72,20 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [HttpGet]
+        [Route("RolebasedBusineessName/{RoleId}")]
+        public async Task<IActionResult> RolebasedBusineessName(int RoleId)
+        {
+            try
+            {
+                var data = await masterDataService.RolebasedBusineessName(RoleId);
+                return Ok(data);
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }

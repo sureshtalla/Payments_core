@@ -40,4 +40,10 @@
         public required string Category { get; set; }
         public required string IsActive { get; set; }
     }
+    public class BusineessRoles
+    {
+        public int Id { get; set; }
+        public required string BusinessName { get; set; }
+        
+    }
 }

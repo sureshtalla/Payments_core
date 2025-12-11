@@ -33,5 +33,12 @@ namespace Payments_core.Services.MasterDataService
             parameters.Add("p_category", Category);
             return await dbContext.GetData<Biller>("sp_master_get_billers", parameters);
         }
+
+        public async Task<IEnumerable<BusineessRoles>> RolebasedBusineessName(int RoleId)
+        {
+            DynamicParameters parameters = new DynamicParameters();
+            parameters.Add("p_role_id", RoleId);
+            return await dbContext.GetData<BusineessRoles>("sp_GetBusinessNamesByRole", parameters);
+        }
     }
 }

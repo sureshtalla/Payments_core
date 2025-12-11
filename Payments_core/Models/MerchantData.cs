@@ -8,7 +8,9 @@
         public string ContactPerson { get; set; }
         public string KycStatus { get; set; }
         public string RiskCategory { get; set; }
-       
+        public string Status { get; set; }
+        public string RoleName { get; set; }
+
 
     }
     public class MerchantApprovalRequest
