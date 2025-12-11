@@ -30,7 +30,7 @@ namespace Payments_core.Controllers
         }
 
 
-        [HttpPost("merchant/kyc/update")]
+        [HttpPost("merchantkyc/update")]
         public async Task<IActionResult> UpdateMerchantKyc([FromBody] MerchantKycUpdateRequest req)
         {
             var result = await _service.UpdateMerchantKycStatusAsync(req);
