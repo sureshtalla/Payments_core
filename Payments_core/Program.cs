@@ -5,6 +5,7 @@ using Payments_core.Controllers;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
+using Payments_core.Services.PricingMDRDataService;
 using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using System.Text;
@@ -38,6 +39,7 @@ namespace Payments_core
             builder.Services.AddScoped<IOtpService, OtpService>();
             builder.Services.AddScoped<ISuperDistributorService, SuperDistributorService>();
             builder.Services.AddScoped<IMerchantDataService, MerchantDataService>();
+            builder.Services.AddScoped<IPricingMDRDataService, PricingMDRDataService>();
             
             // === CORS ===
             builder.Services.AddCors(options =>
