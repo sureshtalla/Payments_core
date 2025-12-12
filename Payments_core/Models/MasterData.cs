@@ -31,6 +31,8 @@
         public decimal MaxAmount { get; set; }
         public decimal MdrPercent { get; set; }
         public decimal MdrFixed { get; set; }
+        public string? effective_from { get; set; }
+        public string? effective_to { get; set; }
     }
     public class Biller
     {
