@@ -10,6 +10,7 @@
         public string RiskCategory { get; set; }
         public string Status { get; set; }
         public string RoleName { get; set; }
+        public long RoleId { get; set; }
 
 
     }
