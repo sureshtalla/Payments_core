@@ -37,6 +37,5 @@ namespace Payments_core.Controllers
             return Ok(new { success = true });
         }
 
-
     }
 }

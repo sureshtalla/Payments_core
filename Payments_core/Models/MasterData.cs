@@ -26,7 +26,9 @@
     public class MdrPricing
     {
         public int Id { get; set; }
-        public required string ProductType { get; set; }
+        public required int ProductTypeId { get; set; }
+        public required int providerId { get; set; }
+        public required int paymentMethodId { get; set; }
         public decimal MinAmount { get; set; }
         public decimal MaxAmount { get; set; }
         public decimal MdrPercent { get; set; }
@@ -34,6 +36,7 @@
         public string? effective_from { get; set; }
         public string? effective_to { get; set; }
         public string? providerName { get; set; }
+        public required int ProductTypeName { get; set; }
         public string? paymentMethod { get; set; }
     }
     public class Biller
@@ -49,5 +52,17 @@
         public int Id { get; set; }
         public required string BusinessName { get; set; }
         
+    }
+
+    public class PaymentMode
+    {
+        public int Id { get; set; }
+        public required string Payment_Mode { get; set; }
+    }
+
+    public class ProductCategory
+    {
+        public int Id { get; set; }
+        public required string CategoryName { get; set; }
     }
 }
