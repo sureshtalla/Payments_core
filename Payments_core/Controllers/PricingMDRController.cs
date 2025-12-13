@@ -24,18 +24,28 @@ namespace Payments_core.Controllers
         {
             try
             {
+                // Call the service to insert the data
                 var result = await _service.InsertMdrPricing(req);
 
                 if (result == null)
-                    return BadRequest("Failed to insert MDR pricing");
+                {
+                    // Return BadRequest with a more informative error message
+                    return BadRequest(new { success = false, message = "Failed to insert MDR pricing" });
+                }
 
-                return Ok("Data loaded successfully");
+                // Return Ok with a success flag and message
+                return Ok(new { success = true, message = "Data loaded successfully" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+                // Log the exception (optional)
+                //_logger.LogError(ex, "Error occurred while inserting MDR pricing");
+
+                // Return a 500 error with the exception message
+                return StatusCode(500, new { success = false, message = $"Internal Server Error: {ex.Message}" });
             }
         }
+
 
         [HttpGet("PricingUpdate/{pricingId}")]
         public async Task<IActionResult> Update(long pricingId, MdrPricingUpdateRequest req)
