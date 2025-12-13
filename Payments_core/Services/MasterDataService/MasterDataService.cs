@@ -50,5 +50,17 @@ namespace Payments_core.Services.MasterDataService
         {
             return await dbContext.GetData<ProductCategory>("GetProductCategories", null);
         }
+
+        public async Task<int> AddOrUpdateProvider(Provider request)
+        {
+            var param = new DynamicParameters();
+            param.Add("P_Id", request.Id);
+            param.Add("p_Code", request.ProviderCode);
+            param.Add("p_Name", request.ProviderName);
+            param.Add("p_Type", request.ProviderType);
+            param.Add("p_Status", request.IsActive);
+
+            return await dbContext.SetData("AddOrUpdateProvider", param);
+        }
     }
 }

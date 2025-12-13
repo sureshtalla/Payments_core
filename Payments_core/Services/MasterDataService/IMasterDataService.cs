@@ -16,5 +16,6 @@ namespace Payments_core.Services.MasterDataService
         Task<IEnumerable<BusineessRoles>> RolebasedBusineessName(int RoleId);
         Task<IEnumerable<PaymentMode>> GetPaymentModes();
         Task<IEnumerable<ProductCategory>> GetProductCategories();
+        Task<int> AddOrUpdateProvider(Provider request);
     }
 }

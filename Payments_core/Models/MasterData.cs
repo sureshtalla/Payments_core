@@ -6,15 +6,35 @@
         public required  string RoleName { get; set; }
         public required  string Description { get; set; }
     }
+
     public class Provider
+    {
+        public int Id { get; set; }
+        public required string ProviderCode { get; set; }
+        public required string ProviderName { get; set; }
+        public ProviderType ProviderType { get; set; } // JSON as required string
+        public int IsActive { get; set; }
+        
+    }
+
+    public class ProviderDto
     {
         public int Id { get; set; }
         public required string ProviderCode { get; set; }
         public required string ProviderName { get; set; }
         public required string ProviderType { get; set; } // JSON as required string
         public required string IsActive { get; set; }
-        
+
     }
+
+    public enum ProviderType
+    {
+        PG = 1,
+        BBPS = 2,
+        PAYOUT = 3,
+        VAM = 4
+    }
+
     public class CommissionScheme
     {
         public int Id { get; set; }
@@ -23,6 +43,7 @@
         public required string CommissionType { get; set; }
         public decimal CommissionValue { get; set; }
     }
+
     public class MdrPricing
     {
         public int Id { get; set; }
