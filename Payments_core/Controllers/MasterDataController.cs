@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Payments_core.Models;
 using Payments_core.Services.MasterDataService;
 
 namespace Payments_core.Controllers
@@ -117,6 +118,20 @@ namespace Payments_core.Controllers
                 var data = await masterDataService.GetProductCategories();
                 return Ok(data);
 
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpPost("AddOrUpdateProvider")]
+        public async Task<IActionResult> AddOrUpdateProvider(Provider request)
+        {
+            try
+            {
+                var data = await masterDataService.AddOrUpdateProvider(request);
+                return Ok(data);
             }
             catch (Exception ex)
             {
