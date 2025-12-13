@@ -33,6 +33,8 @@
         public decimal MdrFixed { get; set; }
         public string? effective_from { get; set; }
         public string? effective_to { get; set; }
+        public string? providerName { get; set; }
+        public string? paymentMethod { get; set; }
     }
     public class Biller
     {
