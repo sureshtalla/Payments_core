@@ -118,6 +118,7 @@ namespace Payments_core.Controllers
                 data = user
             });
         }
+
         [HttpGet("profile/{id}")]
         public async Task<IActionResult> Profile(long id)
         {

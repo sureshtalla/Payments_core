@@ -1,4 +1,5 @@
-﻿using Payments_core.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using Payments_core.Models;
 
 namespace Payments_core.Services.PricingMDRDataService
 {
@@ -7,5 +8,7 @@ namespace Payments_core.Services.PricingMDRDataService
         Task<IEnumerable<MdrPricingDto>> GetMdrPricing(string? category, int? providerId);
         Task<MdrPricingDto?> InsertMdrPricing(MdrPricingCreateRequest request);
         Task<MdrPricingDto?> UpdateMdrPricing(MdrPricingUpdateRequest request);
+        Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(string CategoryId, int ProviderId);
+        Task<int> AddOrUpdateCommissionSchemes(CommissionSchemeRequest req);
     }
 }

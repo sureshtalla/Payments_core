@@ -46,7 +46,6 @@ namespace Payments_core.Controllers
             }
         }
 
-
         [HttpGet("PricingUpdate/{pricingId}")]
         public async Task<IActionResult> Update(long pricingId, MdrPricingUpdateRequest req)
         {
@@ -55,6 +54,40 @@ namespace Payments_core.Controllers
 
             var result = await _service.UpdateMdrPricing(req);
             return Ok(result);
+        }
+
+        [HttpGet("GetCommissionSchemes/{CategoryId}/{ProviderId}")]
+        public async Task<IActionResult> GetCommissionSchemes(string CategoryId, int ProviderId)
+        {
+            var data = await _service.GetCommissionSchemes(CategoryId, ProviderId);
+            return Ok(data);
+        }
+
+        [HttpPost("AddOrUpdateCommissionSchemes")]
+        public async Task<IActionResult> AddOrUpdateCommissionSchemes(CommissionSchemeRequest req)
+        {
+            try
+            {
+                // Call the service to insert the data
+                var result = await _service.AddOrUpdateCommissionSchemes(req);
+
+                if (result == null)
+                {
+                    // Return BadRequest with a more informative error message
+                    return BadRequest(new { success = false, message = "Failed to insert/update commission scheme" });
+                }
+
+                // Return Ok with a success flag and message
+                return Ok(new { success = true, message = "Inserted or updated commission scheme successfully" });
+            }
+            catch (Exception ex)
+            {
+                // Log the exception (optional)
+                //_logger.LogError(ex, "Error occurred while inserting MDR pricing");
+
+                // Return a 500 error with the exception message
+                return StatusCode(500, new { success = false, message = $"Internal Server Error: {ex.Message}" });
+            }
         }
     }
 }

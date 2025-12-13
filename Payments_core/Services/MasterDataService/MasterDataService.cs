@@ -40,5 +40,15 @@ namespace Payments_core.Services.MasterDataService
             parameters.Add("p_role_id", RoleId);
             return await dbContext.GetData<BusineessRoles>("sp_GetBusinessNamesByRole", parameters);
         }
+
+        public async Task<IEnumerable<PaymentMode>> GetPaymentModes()
+        {
+            return await dbContext.GetData<PaymentMode>("GetPaymentModes", null);
+        }
+
+        public async Task<IEnumerable<ProductCategory>> GetProductCategories()
+        {
+            return await dbContext.GetData<ProductCategory>("GetProductCategories", null);
+        }
     }
 }

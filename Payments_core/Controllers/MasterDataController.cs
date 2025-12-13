@@ -13,6 +13,7 @@ namespace Payments_core.Controllers
         {
             masterDataService = _masterDataService;
         }
+
         [HttpGet]
         [Route("GetAllRoles")]
         public async Task<IActionResult> GetAllRoles()
@@ -42,6 +43,7 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
         [HttpGet]
         [Route("GetMdrPricingAsync")]
         public async Task<IActionResult> GetMdrPricingAsync()
@@ -57,6 +59,7 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
         [HttpGet]
         [Route("GetBillerAsync/{Category}")]
         public async Task<IActionResult> GetBillerAsync(string Category)
@@ -72,6 +75,7 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
         [HttpGet]
         [Route("RolebasedBusineessName/{RoleId}")]
         public async Task<IActionResult> RolebasedBusineessName(int RoleId)
@@ -87,5 +91,38 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+
+        [HttpGet]
+        [Route("GetPaymentModes")]
+        public async Task<IActionResult> GetPaymentModes()
+        {
+            try
+            {
+                var data = await masterDataService.GetPaymentModes();
+                return Ok(data);
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet]
+        [Route("GetProductCategories")]
+        public async Task<IActionResult> GetProductCategories()
+        {
+            try
+            {
+                var data = await masterDataService.GetProductCategories();
+                return Ok(data);
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
     }
 }
