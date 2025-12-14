@@ -46,15 +46,30 @@ namespace Payments_core.Controllers
             }
         }
 
-        [HttpGet("PricingUpdate/{pricingId}")]
-        public async Task<IActionResult> Update(long pricingId, MdrPricingUpdateRequest req)
+        [HttpPut("PricingUpdate")]
+        public async Task<IActionResult> Update([FromBody] MdrPricingUpdateRequest req)
         {
-            if (pricingId != req.Id)
-                return BadRequest("ID mismatch");
+            try
+            {
+                var result = await _service.UpdateMdrPricing(req);
 
-            var result = await _service.UpdateMdrPricing(req);
-            return Ok(result);
+                if (result == null)
+                    return BadRequest("Failed to update MDR pricing");
+
+                return Ok("Pricing updated successfully");
+            }
+            catch (MySqlConnector.MySqlException ex)
+            {
+                // Database-specific error
+                return StatusCode(500, $"Database error: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                // General error
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
+
 
         [HttpGet("GetCommissionSchemes/{CategoryId}/{ProviderId}")]
         public async Task<IActionResult> GetCommissionSchemes(string CategoryId, int ProviderId)
