@@ -13,7 +13,7 @@
         public required string ProviderCode { get; set; }
         public required string ProviderName { get; set; }
         public ProviderType ProviderType { get; set; } // JSON as required string
-        public int IsActive { get; set; }
+        public string? IsActive { get; set; }
         
     }
 
@@ -57,7 +57,7 @@
         public string? effective_from { get; set; }
         public string? effective_to { get; set; }
         public string? providerName { get; set; }
-        public required int ProductTypeName { get; set; }
+        public string? ProductTypeName { get; set; }
         public string? paymentMethod { get; set; }
     }
     public class Biller
