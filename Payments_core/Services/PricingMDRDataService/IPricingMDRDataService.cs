@@ -10,5 +10,11 @@ namespace Payments_core.Services.PricingMDRDataService
         Task<MdrPricingDto?> UpdateMdrPricing(MdrPricingUpdateRequest request);
         Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(string CategoryId, int ProviderId);
         Task<int> AddOrUpdateCommissionSchemes(CommissionSchemeRequest req);
+
+
+        Task<SpecialPriceRequest> SpecialPriceCreateAsync(SpecialPriceRequest request);
+        Task<bool> SpecialPriceUpdateAsync(SpecialPriceRequest request);
+        Task<bool> SpecialPriceChangeStatusAsync( bool isActive, long userId);
+        Task<IEnumerable<SpecialPrice>> GetSpecialPriceAsync();
     }
 }

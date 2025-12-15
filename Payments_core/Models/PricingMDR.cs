@@ -70,5 +70,37 @@
         public DateTime EffectiveTo { get; set; }
     }
 
+    public class SpecialPrice
+    {
+        public long Id { get; set; }
+
+        public long user_id { get; set; }
+
+        public int Product_Category_Id { get; set; }
+
+        public decimal Price { get; set; }
+        public string Description { get; set; }
+
+        public bool IsActive { get; set; }
+
+        public long CreatedBy { get; set; }
+        public DateTime CreatedDate { get; set; }
+
+        public long? ModifiedBy { get; set; }
+        public DateTime? ModifiedDate { get; set; }
+    }
+
+    public class SpecialPriceRequest
+    {
+        public long Id { get; set; }
+        public long UserId { get; set; }
+        public int ProductCategoryId { get; set; }
+
+        public decimal Price { get; set; }
+        public string Description { get; set; }
+
+        public long ActionBy { get; set; }
+    }
+
 
 }
