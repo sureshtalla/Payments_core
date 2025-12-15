@@ -104,5 +104,42 @@ namespace Payments_core.Controllers
                 return StatusCode(500, new { success = false, message = $"Internal Server Error: {ex.Message}" });
             }
         }
+
+
+
+
+        // ✅ Create
+        [HttpPost("SpecialPriceCreateAsync")]
+        public async Task<IActionResult> SpecialPriceCreateAsync(SpecialPriceRequest request)
+        {
+            var id = await _service.SpecialPriceCreateAsync(request);
+            return Ok(new { message = "Special price created", id });
+        }
+
+        // ✅ Update
+        [HttpPut("SpecialPriceUpdateAsync")]
+        public async Task<IActionResult> SpecialPriceUpdateAsync( SpecialPriceRequest request)
+        {
+            var result = await _service.SpecialPriceUpdateAsync( request);
+            return result ? Ok("Updated successfully") : BadRequest("Update failed");
+        }
+
+        // ✅ Activate / Inactivate
+        [HttpPut("SpecialPriceChangeStatusAsync/status")]
+        public async Task<IActionResult> SpecialPriceChangeStatusAsync(bool isActive, long userId)
+        {
+            var result = await _service.SpecialPriceChangeStatusAsync(isActive, userId);
+            return result ? Ok("Status updated") : BadRequest("Failed");
+        }
+
+        // ✅ Get Prices
+        [HttpGet("GetSpecialPriceAsync")]
+        public async Task<IActionResult> GetSpecialPriceAsync()
+        {
+            var data = await _service.GetSpecialPriceAsync();
+            return Ok(data);
+        }
+
+
     }
 }

@@ -1,6 +1,8 @@
 ﻿using Dapper;
 using Payments_core.Models;
 using Payments_core.Services.DataLayer;
+using System.Data;
+using System.Reflection.Metadata;
 
 namespace Payments_core.Services.PricingMDRDataService
 {
@@ -72,6 +74,61 @@ namespace Payments_core.Services.PricingMDRDataService
             param.Add("P_Effective_To", req.EffectiveTo);
 
             return await _dbContext.SetData("AddOrUpdateCommissionSchemes", param);
+        }
+
+
+        // ✅ Create
+        public async Task<SpecialPriceRequest> SpecialPriceCreateAsync(SpecialPriceRequest req)  
+        {
+            var p= new DynamicParameters();
+            p.Add("p_user_id", req.UserId);
+            p.Add("p_product_category_id", req.ProductCategoryId);
+            p.Add("p_price", req.Price);
+            p.Add("p_description", req.Description);
+            p.Add("p_created_by", req.ActionBy);
+
+            return await _dbContext.GetSingleData<SpecialPriceRequest>("sp_create_special_price", p);
+        }
+
+        // ✅ Update
+        public async Task<bool> SpecialPriceUpdateAsync( SpecialPriceRequest req)
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("p_user_id", req.UserId);
+            parameters.Add("p_price", req.Price);
+            parameters.Add("p_description", req.Description);
+            parameters.Add("p_modified_by", req.ActionBy);
+
+            var rows = await _dbContext.ExecuteAsync(
+                "sp_update_special_price",
+                parameters,
+                commandType: CommandType.StoredProcedure
+            );
+
+            return rows > 0;
+        }
+
+        // ✅ Activate / Inactivate
+        public async Task<bool> SpecialPriceChangeStatusAsync(bool isActive, long userId)
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("p_is_active", isActive ? 1 : 0);
+            parameters.Add("p_user_id", userId);
+
+            var rows = await _dbContext.ExecuteAsync(
+                "sp_change_special_price_status",
+                parameters,
+                commandType: CommandType.StoredProcedure
+            );
+
+            return rows > 0;
+        }
+
+        // ✅ Get Prices
+        public async Task<IEnumerable<SpecialPrice>> GetSpecialPriceAsync()
+        {
+            var parameters = new DynamicParameters();
+            return await _dbContext.GetData<SpecialPrice>("sp_get_special_prices", parameters);
         }
     }
 }
