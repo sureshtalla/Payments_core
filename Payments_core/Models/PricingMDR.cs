@@ -79,7 +79,7 @@
         public int Product_Category_Id { get; set; }
 
         public decimal Price { get; set; }
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         public bool IsActive { get; set; }
 
@@ -88,6 +88,10 @@
 
         public long? ModifiedBy { get; set; }
         public DateTime? ModifiedDate { get; set; }
+
+        public string? RoleName { get; set; }
+        public string? Merchant { get; set; }
+        public string? ProductCategory { get; set; }
     }
 
     public class SpecialPriceRequest
