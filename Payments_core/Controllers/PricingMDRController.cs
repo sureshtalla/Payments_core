@@ -141,5 +141,30 @@ namespace Payments_core.Controllers
         }
 
 
+
+        // CREATE
+        [HttpPost("RoutingCreateAsync")]
+        public async Task<IActionResult> RoutingCreate(RoutingRuleRequest request)
+        {
+            var id = await _service.RoutingCreateAsync(request);
+            return Ok(new { message = "Rule created successfully", id });
+        }
+
+        // UPDATE
+        [HttpPut("RoutingUpdateAsync/{id}")]
+        public async Task<IActionResult> RoutingUpdateAsync(long id, RoutingRuleRequest request)
+        {
+            var updated = await _service.RoutingUpdateAsync(id,request);
+            return updated ? Ok("Updated successfully") : NotFound("Record not found");
+        }
+
+        // GET ALL
+        [HttpGet("RoutingGetAll")]
+        public async Task<IActionResult> RoutingGetAll()
+        {
+            var data = await _service.RoutingGetAllAsync();
+            return Ok(data);
+        }
+
     }
 }
