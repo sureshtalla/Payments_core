@@ -13,5 +13,7 @@ namespace Payments_core.Services.UserDataService
         bool VerifyPassword(string plain, string hash);
 
         Task<bool> UpdateLoginAttemptAsync(UserProfileResponse user);
+        Task<UserManagementResponse> GetUserManagementProfile();
+        
     }
 }

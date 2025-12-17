@@ -92,6 +92,21 @@ namespace Payments_core.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [HttpGet]
+        [Route("RolebasedUserWise/{RoleId}/{UserId}")]
+        public async Task<IActionResult> RolebasedUserWise(int RoleId,int UserId)
+        {
+            try
+            {
+                var data = await masterDataService.RolebasedUserWise(RoleId, UserId);
+                return Ok(data);
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
 
         [HttpGet]
         [Route("GetPaymentModes")]

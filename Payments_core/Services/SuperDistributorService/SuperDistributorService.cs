@@ -58,7 +58,8 @@ namespace Payments_core.Services.SuperDistributorService
             //param.Add("p_bank_url", req.BankUrl);
 
             param.Add("p_created_by", req.user_id);
-            
+            param.Add("p_super_user_id", req.super_user_id);
+
             // OUTPUT VALUES
             param.Add("o_user_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
             param.Add("o_merchant_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
