@@ -39,5 +39,12 @@ namespace Payments_core.Controllers
             return Ok(data);
         }
 
+        [HttpGet("GetKYCStatus/{userId}")]
+        public async Task<IActionResult> GetKYCStatus(long userId)
+        {
+            var data = await _service.GetKYCStatus(userId);
+            return Ok(data);
+        }
+
     }
 }

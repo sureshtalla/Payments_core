@@ -12,6 +12,6 @@ namespace Payments_core.Services.SuperDistributorService
         Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId);
         Task<uperDistributorProfileDto?> GetCardDetailedInfo( int roleId, long userId);
 
-
+        Task<bool> GetKYCStatus(long userId);
     }
 }
