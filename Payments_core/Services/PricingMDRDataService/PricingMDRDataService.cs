@@ -64,6 +64,7 @@ namespace Payments_core.Services.PricingMDRDataService
         {
             var param = new DynamicParameters();
             param.Add("P_Id", req.Id);
+            param.Add("P_ProviderId", req.ProviderId);
             param.Add("P_PaymentModeId", req.paymentMethodId);
             param.Add("P_Product_TypeId", req.ProductTypeId);
             param.Add("P_Admin_Percent", req.Admin_Percent);
