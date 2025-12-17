@@ -16,5 +16,10 @@ namespace Payments_core.Services.PricingMDRDataService
         Task<bool> SpecialPriceUpdateAsync(SpecialPriceRequest request);
         Task<bool> SpecialPriceChangeStatusAsync( bool isActive, long userId);
         Task<IEnumerable<SpecialPrice>> GetSpecialPriceAsync();
+
+
+        Task<RoutingRuleRequest> RoutingCreateAsync(RoutingRuleRequest request);
+        Task<bool> RoutingUpdateAsync(long id,RoutingRuleRequest request);
+        Task<IEnumerable<RoutingRule>> RoutingGetAllAsync();
     }
 }

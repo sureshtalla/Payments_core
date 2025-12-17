@@ -102,5 +102,20 @@
         public long ActionBy { get; set; }
     }
 
+    public class RoutingRule
+    {
+        public long Id { get; set; }
+        public int Priority { get; set; }
+        public string RuleName { get; set; }
+        public string Criteria { get; set; }
+        public string Provider { get; set; }
+    }
+    public class RoutingRuleRequest
+    {
+        public int Priority { get; set; }
+        public string RuleName { get; set; }
+        public string Criteria { get; set; }
+        public string Provider { get; set; }
+    }
 
 }

@@ -3,6 +3,7 @@ using Payments_core.Models;
 using Payments_core.Services.DataLayer;
 using System.Data;
 using System.Reflection.Metadata;
+using System.Security.Cryptography;
 
 namespace Payments_core.Services.PricingMDRDataService
 {
@@ -129,6 +130,45 @@ namespace Payments_core.Services.PricingMDRDataService
         {
             var parameters = new DynamicParameters();
             return await _dbContext.GetData<SpecialPrice>("sp_get_special_prices", parameters);
+        }
+
+
+        // CREATE
+        public async Task<RoutingRuleRequest> RoutingCreateAsync(RoutingRuleRequest req)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_priority", req.Priority);
+            param.Add("p_rule_name", req.RuleName);
+            param.Add("p_criteria", req.Criteria);
+            param.Add("p_provider", req.Provider);
+
+            return await _dbContext.GetSingleData<RoutingRuleRequest>("sp_routing_rule_create", param);
+        }
+
+        // UPDATE
+        public async Task<bool> RoutingUpdateAsync(long Id, RoutingRuleRequest req)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_id", Id);
+            param.Add("p_priority", req.Priority);
+            param.Add("p_rule_name", req.RuleName);
+            param.Add("p_criteria", req.Criteria);
+            param.Add("p_provider", req.Provider);
+
+            var rows = await _dbContext.ExecuteAsync(
+               "sp_routing_rule_update",
+               param,
+               commandType: CommandType.StoredProcedure
+           );
+
+            return rows > 0;
+        }
+
+        // GET ALL
+        public async Task<IEnumerable<RoutingRule>> RoutingGetAllAsync()
+        {
+            var parameters = new DynamicParameters();
+            return await _dbContext.GetData<RoutingRule>("sp_routing_rule_get_all", parameters);
         }
     }
 }
