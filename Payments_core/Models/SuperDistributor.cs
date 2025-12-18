@@ -140,6 +140,7 @@
         public bool IsAuthorVerified { get; set; }
         public string PanUrl { get; set; }
         public string AadhaarUrl { get; set; }
+        public long SuperUserId { get; set; }
     }
 
 }
