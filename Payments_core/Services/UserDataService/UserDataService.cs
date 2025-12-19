@@ -90,11 +90,10 @@ namespace Payments_core.Services.UserDataService
 
             return true;
         }
-        public async Task<UserManagementResponse> GetUserManagementProfile()
+        public async Task<IEnumerable<UserManagementResponse?>> GetUserManagementProfile()
         {
             var param = new DynamicParameters();
-            var data = await _dbContext.GetData<UserManagementResponse>("sp_GetUsers", param);
-            return data.FirstOrDefault();
+           return await _dbContext.GetData<UserManagementResponse>("sp_GetUsers", param);
         }
         
     }

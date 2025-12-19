@@ -83,6 +83,7 @@ namespace Payments_core.Services.PricingMDRDataService
         public async Task<SpecialPriceRequest> SpecialPriceCreateAsync(SpecialPriceRequest req)  
         {
             var p= new DynamicParameters();
+            p.Add("P_Id", req.Id);
             p.Add("p_user_id", req.UserId);
             p.Add("p_product_category_id", req.ProductCategoryId);
             p.Add("p_price", req.Price);
