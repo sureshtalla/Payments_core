@@ -148,5 +148,13 @@ namespace Payments_core.Controllers
             var success = await userDataService.UpdateProfileAsync(request);
             return Ok(new { success, message = "Profile updated successfully." });
         }
+
+
+        [HttpGet("UserManagementProfile")]
+        public async Task<IActionResult> GetUserManagementProfile()
+        {
+            var result = await userDataService.GetUserManagementProfile();
+            return Ok(result);
+        }
     }
 }

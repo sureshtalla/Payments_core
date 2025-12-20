@@ -112,14 +112,14 @@
         public int Priority { get; set; }
         public string RuleName { get; set; }
         public string Criteria { get; set; }
-        public string Provider { get; set; }
+        public int Provider { get; set; }
     }
     public class RoutingRuleRequest
     {
         public int Priority { get; set; }
         public string RuleName { get; set; }
         public string Criteria { get; set; }
-        public string Provider { get; set; }
+        public int Provider { get; set; }
     }
 
 }

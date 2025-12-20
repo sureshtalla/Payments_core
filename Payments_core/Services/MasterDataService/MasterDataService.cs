@@ -39,6 +39,7 @@ namespace Payments_core.Services.MasterDataService
         {
             DynamicParameters parameters = new DynamicParameters();
             parameters.Add("p_role_id", RoleId);
+            parameters.Add("p_user_id", null);
             return await dbContext.GetData<BusineessRoles>("sp_GetBusinessNamesByRole", parameters);
         }
 
@@ -62,6 +63,14 @@ namespace Payments_core.Services.MasterDataService
             param.Add("p_Status", request.IsActive);
 
             return await dbContext.SetData("AddOrUpdateProvider", param);
+        }
+
+        public async Task<IEnumerable<BusineessRoles>> RolebasedUserWise(int RoleId,int UserId)
+        {
+            DynamicParameters parameters = new DynamicParameters();
+            parameters.Add("p_role_id", RoleId);
+            parameters.Add("p_user_id", UserId);
+            return await dbContext.GetData<BusineessRoles>("sp_GetBusinessNamesByRole", parameters);
         }
     }
 }
