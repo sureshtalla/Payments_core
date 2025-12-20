@@ -18,7 +18,7 @@ namespace Payments_core.Services.MasterDataService
             return await dbContext.GetData<Roles>("sp_roles_get_all", null);
         }
 
-        public async Task<IEnumerable<Provider>>GetProvidersAsync()
+        public async Task<IEnumerable<Provider>> GetProvidersAsync()
         {
             return await dbContext.GetData<Provider>("sp_master_get_providers",null);
         }
@@ -27,6 +27,7 @@ namespace Payments_core.Services.MasterDataService
         {
             return await dbContext.GetData<MdrPricing>("sp_master_get_mdr_pricing", null);
         }
+
         public async Task<IEnumerable<Biller>> GetBillerAsync(string Category)
         {
             DynamicParameters parameters = new DynamicParameters();

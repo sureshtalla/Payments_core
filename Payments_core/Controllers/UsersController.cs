@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
 using Payments_core.Services.MasterDataService;
+using Payments_core.Services.OTPService;
 using Payments_core.Services.UserDataService;
 
 namespace Payments_core.Controllers
@@ -13,11 +14,13 @@ namespace Payments_core.Controllers
 
         private readonly IUserDataService userDataService;
         private readonly IOtpService otpDataService;
+        private readonly IMSG91OTPService msgOtpService;
 
-        public UsersController(IUserDataService _userDataService, IOtpService _otpDataService)
+        public UsersController(IUserDataService _userDataService, IOtpService _otpDataService, IMSG91OTPService _msgOtpService)
         {
             userDataService = _userDataService;
             otpDataService = _otpDataService;
+            msgOtpService = _msgOtpService;
         }
 
         [HttpPost("register")]
@@ -95,12 +98,25 @@ namespace Payments_core.Controllers
 
             // Generate OTP
             string otp = await otpDataService.GenerateOtpAsync(user.Id, user.Mobile);
+            var msgConfig = await msgOtpService.GetMSGOTPConfigAsync();
+            var result = await msgOtpService.MSG91SendOTPAsync(otp, user.Mobile, msgConfig.MSGOtpAuthKey, msgConfig.MSGOtpTemplateId, msgConfig.MSGUrl);
 
-            return Ok(new
+            if (result)
             {
-                message = "Password verified. OTP sent.",
-                user_id = user.Id
-            });
+                return Ok(new
+                {
+                    message = "Password verified. OTP sent.",
+                    user_id = user.Id
+                });
+            }
+            else
+            {
+                return Ok(new
+                {
+                    message = "The password was verified, but the OTP could not be sent. Please try again.",
+                    user_id = user.Id
+                });
+            }
         }
 
         [HttpPost("verify-otp")]
