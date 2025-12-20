@@ -36,7 +36,9 @@
         public required string PanUrl { get; set; }
         public required string AadhaarUrl { get; set; }
        public int user_id { get; set; }
-        
+
+        public int super_user_id { get; set; }
+
         //public required string GstUrl { get; set; }
         //public required string BankUrl { get; set; }
     }
@@ -138,6 +140,7 @@
         public bool IsAuthorVerified { get; set; }
         public string PanUrl { get; set; }
         public string AadhaarUrl { get; set; }
+        public long SuperUserId { get; set; }
     }
 
 }

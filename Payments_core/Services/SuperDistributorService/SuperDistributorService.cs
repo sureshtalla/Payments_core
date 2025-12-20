@@ -50,15 +50,16 @@ namespace Payments_core.Services.SuperDistributorService
             //param.Add("p_pincode", req.Pincode);
             //param.Add("p_bank_acc", req.BankAccountNo);
             //param.Add("p_bank_ifsc", req.BankIfsc);
-            param.Add("isAuthorVerified", req.isAuthorVerified);
+            param.Add("p_isAuthorVerified", req.isAuthorVerified);
             // KYC DOCUMENT URLS
             param.Add("p_pan_url", req.PanUrl);
             param.Add("p_aadhaar_url", req.AadhaarUrl);
             // param.Add("p_gst_url", req.GstUrl);
             //param.Add("p_bank_url", req.BankUrl);
 
-            param.Add("user_id", req.user_id);
-            
+            param.Add("p_created_by", req.user_id);
+            param.Add("p_super_user_id", req.super_user_id);
+
             // OUTPUT VALUES
             param.Add("o_user_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
             param.Add("o_merchant_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
@@ -111,7 +112,12 @@ namespace Payments_core.Services.SuperDistributorService
             var result = await _dbContext.GetData<uperDistributorProfileDto>("sp_user_card_get_one", param);
             return result.FirstOrDefault();
         }
-
+        public async Task<bool> GetKYCStatus(long userId)
+        {
+            var param = new { p_user_id = userId };
+            var result = await _dbContext.GetData<bool>("sp_check_kyc_status", param);
+            return result.FirstOrDefault();
+        }
 
     }
 }

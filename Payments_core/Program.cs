@@ -44,7 +44,8 @@ namespace Payments_core
                 options.AddPolicy("AllowRCPWClient", policy =>
                 {
                     policy.WithOrigins(
-                            "http://localhost:4200"   // Angular dev
+                            "http://localhost:4200" ,
+                            "https://merchant.fastcashfnx.in"
                         )
                         .AllowAnyMethod()
                         .AllowAnyHeader()
