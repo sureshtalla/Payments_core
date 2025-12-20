@@ -114,26 +114,40 @@ namespace Payments_core.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
+            if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Otp))
+                return BadRequest("Invalid request data");
+
             bool isValid = await otpDataService.VerifyOtpAsync(request.UserId, request.Otp);
             if (!isValid)
                 return Unauthorized("Invalid OTP");
 
             var user = await userDataService.GetProfileAsync(request.UserId);
+            if (user == null)
+                return Unauthorized("User not found");
 
             var claims = new[]
-                {
-                    new Claim(ClaimTypes.Name, user.full_name),
-                    new Claim(ClaimTypes.Role, user.role_name),
-                };
+            {
+        new Claim(ClaimTypes.Name, user.full_name ?? "User"),
+        new Claim(ClaimTypes.Role, user.role_name ?? "User"),
+        new Claim("UserId", request.UserId.ToString())
+    };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Key"]));
+            var jwtKey = config["JwtSettings:Key"];
+            if (string.IsNullOrWhiteSpace(jwtKey))
+                return StatusCode(500, "JWT Key missing in configuration");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
             var token = new JwtSecurityToken(
-                issuer: config["Issuer"],
-                audience: config["Audience"],
+                issuer: config["JwtSettings:Issuer"],
+                audience: config["JwtSettings:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(1),
-                signingCredentials: creds);
+                expires: DateTime.UtcNow.AddMinutes(
+                    Convert.ToDouble(config["JwtSettings:DurationInMinutes"])
+                ),
+                signingCredentials: creds
+            );
 
             user.Token = new JwtSecurityTokenHandler().WriteToken(token);
 
@@ -143,6 +157,7 @@ namespace Payments_core.Controllers
                 data = user
             });
         }
+
 
         [HttpGet("profile/{id}")]
         public async Task<IActionResult> Profile(long id)
