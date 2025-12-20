@@ -68,10 +68,13 @@ namespace Payments_core.Services.PricingMDRDataService
             param.Add("P_ProviderId", req.ProviderId);
             param.Add("P_PaymentModeId", req.paymentMethodId);
             param.Add("P_Product_TypeId", req.ProductTypeId);
+            param.Add("P_Mdr_Percent", req.mdr_percent);
             param.Add("P_Admin_Percent", req.Admin_Percent);
             param.Add("P_SD_Percent", req.SD_Percent);
             param.Add("P_Distributor_Percent", req.Distributor_Percent);
             param.Add("P_Retailer_Percent", req.Retailer_Percent);
+            param.Add("P_min_amount", req.min_amount);
+            param.Add("P_max_amount", req.max_amount);
             param.Add("P_Effective_From", req.EffectiveFrom);
             param.Add("P_Effective_To", req.EffectiveTo);
 
