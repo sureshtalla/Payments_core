@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
 using Payments_core.Services.SuperDistributorService;
 
 namespace Payments_core.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/superdistributor")]
     public class SuperDistributorController : Controller
