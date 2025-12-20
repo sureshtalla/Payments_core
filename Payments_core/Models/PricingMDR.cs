@@ -49,9 +49,12 @@
         public int ProviderId { get; set; }
         public string? ProviderName { get; set; }
         public decimal Admin_Percent { get; set; }
+        public decimal mdr_percent { get; set; }
         public decimal SD_Percent { get; set; }
         public decimal Distributor_Percent { get; set; }
         public decimal Retailer_Percent { get; set; }
+        public decimal min_amount { get; set; }
+        public decimal max_amount { get; set; }
         public DateTime EffectiveFrom { get; set; }
         public DateTime EffectiveTo { get; set; }
     }
@@ -62,10 +65,13 @@
         public int ProductTypeId { get; set; }
         public int paymentMethodId { get; set; }
         public int ProviderId { get; set; }
+        public decimal mdr_percent { get; set; }
         public decimal Admin_Percent { get; set; }
         public decimal SD_Percent { get; set; }
         public decimal Distributor_Percent { get; set; }
         public decimal Retailer_Percent { get; set; }
+        public decimal min_amount { get; set; }
+        public decimal max_amount { get; set; }
         public DateTime EffectiveFrom { get; set; }
         public DateTime EffectiveTo { get; set; }
     }
