@@ -86,4 +86,11 @@
         public int Id { get; set; }
         public required string CategoryName { get; set; }
     }
+
+    public class MSGOTPConfig
+    {
+        public required string MSGUrl { get; set; }
+        public required string MSGOtpTemplateId { get; set; }
+        public required string MSGOtpAuthKey { get; set; }
+    }
 }

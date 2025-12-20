@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
-using Payments_core.Services.MerchantDataService;
 using Payments_core.Services.PricingMDRDataService;
 
 namespace Payments_core.Controllers

@@ -1,15 +1,11 @@
 ﻿
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Payments_core.Controllers;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
+using Payments_core.Services.OTPService;
 using Payments_core.Services.PricingMDRDataService;
 using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
-using System.Text;
-//using Payments_core.Services.OtpDataService; 
 
 namespace Payments_core
 {
@@ -40,7 +36,8 @@ namespace Payments_core
             builder.Services.AddScoped<ISuperDistributorService, SuperDistributorService>();
             builder.Services.AddScoped<IMerchantDataService, MerchantDataService>();
             builder.Services.AddScoped<IPricingMDRDataService, PricingMDRDataService>();
-            
+            builder.Services.AddScoped<IMSG91OTPService, MSG91OTPService>();
+
             // === CORS ===
             builder.Services.AddCors(options =>
             {
