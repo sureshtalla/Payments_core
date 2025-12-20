@@ -94,8 +94,8 @@ namespace Payments_core
             app.UseHttpsRedirection();
 
             // Enable Authorization middleware
-            app.UseAuthentication(); 
-
+            app.UseAuthentication();
+            app.UseAuthorization();
             app.MapControllers();
 
             app.Run();
