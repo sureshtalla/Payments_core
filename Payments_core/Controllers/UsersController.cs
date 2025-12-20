@@ -1,12 +1,20 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity.Data;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
 using Payments_core.Models;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.OTPService;
 using Payments_core.Services.UserDataService;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Payments_core.Controllers
 {
 
+    [Authorize]
     [ApiController]
     [Route("api/users")]
     public class UsersController : Controller
@@ -15,12 +23,14 @@ namespace Payments_core.Controllers
         private readonly IUserDataService userDataService;
         private readonly IOtpService otpDataService;
         private readonly IMSG91OTPService msgOtpService;
+        IConfiguration config;
 
-        public UsersController(IUserDataService _userDataService, IOtpService _otpDataService, IMSG91OTPService _msgOtpService)
+        public UsersController(IUserDataService _userDataService, IOtpService _otpDataService, IMSG91OTPService _msgOtpService, IConfiguration _config)
         {
             userDataService = _userDataService;
             otpDataService = _otpDataService;
             msgOtpService = _msgOtpService;
+            config = _config;
         }
 
         [HttpPost("register")]
@@ -33,27 +43,8 @@ namespace Payments_core.Controllers
             return Ok(new { user_id = result, message = "Registered successfully" });
         }
 
-        //[HttpPost("login")]
-        //public async Task<IActionResult> Login([FromBody] UserLoginRequest request)
-        //{
-        //    var user = await userDataService.GetUserByMobileAsync(request.UserName);
-        //    if (user == null)
-        //        return Unauthorized("Invalid user");
-
-        //    bool isValid = userDataService.VerifyPassword(request.Password, user.password_hash);
-        //    if (!isValid)
-        //        return Unauthorized("Invalid password");
-
-        //    // Generate OTP
-        //    string otp = await otpDataService.GenerateOtpAsync(user.Id, user.Mobile);
-
-        //    return Ok(new
-        //    {
-        //        message = "Password verified. OTP sent.",
-        //        user_id = user.Id
-        //    });
-        //}
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] UserLoginRequest request)
         {
             var user = await userDataService.GetUserByMobileAsync(request.UserName);
@@ -120,6 +111,7 @@ namespace Payments_core.Controllers
         }
 
         [HttpPost("verify-otp")]
+        [AllowAnonymous]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
             bool isValid = await otpDataService.VerifyOtpAsync(request.UserId, request.Otp);
@@ -127,6 +119,23 @@ namespace Payments_core.Controllers
                 return Unauthorized("Invalid OTP");
 
             var user = await userDataService.GetProfileAsync(request.UserId);
+
+            var claims = new[]
+                {
+                    new Claim(ClaimTypes.Name, user.full_name),
+                    new Claim(ClaimTypes.Role, user.role_name),
+                };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Key"]));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(
+                issuer: config["Issuer"],
+                audience: config["Audience"],
+                claims: claims,
+                expires: DateTime.Now.AddHours(1),
+                signingCredentials: creds);
+
+            user.Token = new JwtSecurityTokenHandler().WriteToken(token);
 
             return Ok(new
             {
@@ -149,12 +158,12 @@ namespace Payments_core.Controllers
             return Ok(new { success, message = "Profile updated successfully." });
         }
 
-
         [HttpGet("UserManagementProfile")]
         public async Task<IActionResult> GetUserManagementProfile()
         {
             var result = await userDataService.GetUserManagementProfile();
             return Ok(result);
         }
+
     }
 }

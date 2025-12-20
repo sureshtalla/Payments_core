@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
 using Payments_core.Services.PricingMDRDataService;
 
 namespace Payments_core.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/pricingMDR")]
     public class PricingMDRController : Controller
@@ -103,9 +105,6 @@ namespace Payments_core.Controllers
                 return StatusCode(500, new { success = false, message = $"Internal Server Error: {ex.Message}" });
             }
         }
-
-
-
 
         // ✅ Create
         [HttpPost("SpecialPriceCreateAsync")]

@@ -1,4 +1,7 @@
 ﻿
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
@@ -54,7 +57,7 @@ namespace Payments_core
             });
 
             // (JWT config can stay commented for now if you’re not using it)
-            /*
+            
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -71,11 +74,9 @@ namespace Payments_core
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtSettings["Issuer"],
                     ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtSettings["Key"]))
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
                 };
-            });
-            */
+            });            
 
             var app = builder.Build();
 
@@ -92,8 +93,8 @@ namespace Payments_core
 
             app.UseHttpsRedirection();
 
-            // app.UseAuthentication(); // uncomment when JWT is enabled
-            app.UseAuthorization();
+            // Enable Authorization middleware
+            app.UseAuthentication(); 
 
             app.MapControllers();
 
