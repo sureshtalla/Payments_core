@@ -7,6 +7,7 @@ namespace Payments_core.Services.MerchantDataService
         Task<IEnumerable<MerchantListItemDto>> GetAllMerchantsAsync();
         Task<int> UpdateMerchantApprovalAsync(MerchantApprovalRequest req);
         Task<int> UpdateMerchantKycStatusAsync(MerchantKycUpdateRequest req);
+        Task<int> WalletLoad(WalletLoadInit req);
 
     }
 }

@@ -40,5 +40,21 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.ExecuteStoredAsync("sp_merchant_kyc_update", param);
         }
 
+        public async Task<int> WalletLoad(WalletLoadInit req)
+        {
+            var param = new
+            {
+                p_UserId = req.UserId,
+                p_Aount = req.Amount,
+                p_ProviderId = req.ProviderId,
+                p_ProductTypeId = req.ProductTypeId,
+                p_PaymentModeId = req.PaymentModeId,
+                p_SettlementType = req.SettlementType,
+                p_TransactionId = req.TransactionId
+            };
+
+            return await _dbContext.ExecuteStoredAsync("SP_Create_WalletLoadInit", param);
+        }
+
     }
 }
