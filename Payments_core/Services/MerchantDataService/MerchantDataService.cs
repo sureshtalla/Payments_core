@@ -45,7 +45,7 @@ namespace Payments_core.Services.MerchantDataService
             var param = new
             {
                 p_UserId = req.UserId,
-                p_Aount = req.Amount,
+                p_Amount = req.Amount,
                 p_ProviderId = req.ProviderId,
                 p_ProductTypeId = req.ProductTypeId,
                 p_PaymentModeId = req.PaymentModeId,
@@ -56,5 +56,21 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.ExecuteStoredAsync("SP_Create_WalletLoadInit", param);
         }
 
+        public async Task<int> WalletLoadCommissionPercent(WalletLoadInit req)
+        {
+            // To Be modify the p_WalletAmount
+            var param = new
+            {
+                p_UserId = req.UserId,                
+                p_TransactionId = req.TransactionId,
+                p_Amount = req.Amount,
+                p_WalletAmount = req.Amount, 
+                p_ProviderId = req.ProviderId,
+                p_ProductTypeId = req.ProductTypeId,
+                p_PaymentModeId = req.PaymentModeId
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_Create_Wallet_Load_Commission", param);
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Transactions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
 using Payments_core.Services.MerchantDataService;
@@ -42,7 +43,9 @@ namespace Payments_core.Controllers
         [HttpPost("Merchant/WalletLoad")]
         public async Task<IActionResult> WalletLoad([FromBody] WalletLoadInit req)
         {
+            req.TransactionId = Guid.NewGuid().ToString("N").ToUpper();
             var result = await _service.WalletLoad(req);
+            await _service.WalletLoadCommissionPercent(req);
             return Ok(new { success = true });
         }
 
