@@ -20,13 +20,22 @@
         public string Action { get; set; } // APPROVE or REJECT
         public string? Remarks { get; set; }  // Required for REJECT
     }
+
     public class MerchantKycUpdateRequest
     {
         public long MerchantId { get; set; }
         public string KycStatus { get; set; }   // PENDING/VERIFIED/REJECTED/APPROVED
-     
-
     }
 
+    public class WalletLoadInit
+    {
+        public string? TransactionId { get; set; }
+        public int UserId { get; set; }
+        public int ProviderId { get; set; }
+        public int ProductTypeId { get; set; }
+        public int PaymentModeId { get; set; }
+        public int SettlementType { get; set; }
+        public decimal Amount { get; set; }
+    }
 
 }

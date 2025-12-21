@@ -1,14 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity.Data;
-using System.IdentityModel.Tokens.Jwt;
+﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Payments_core.Models;
-using Payments_core.Services.MasterDataService;
 using Payments_core.Services.OTPService;
 using Payments_core.Services.UserDataService;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Payments_core.Controllers
@@ -127,10 +124,10 @@ namespace Payments_core.Controllers
 
             var claims = new[]
             {
-        new Claim(ClaimTypes.Name, user.full_name ?? "User"),
-        new Claim(ClaimTypes.Role, user.role_name ?? "User"),
-        new Claim("UserId", request.UserId.ToString())
-    };
+                new Claim(ClaimTypes.Name, user.full_name ?? "User"),
+                new Claim(ClaimTypes.Role, user.role_name ?? "User"),
+                new Claim("UserId", request.UserId.ToString())
+            };
 
             var jwtKey = config["JwtSettings:Key"];
             if (string.IsNullOrWhiteSpace(jwtKey))

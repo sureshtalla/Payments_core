@@ -39,5 +39,12 @@ namespace Payments_core.Controllers
             return Ok(new { success = true });
         }
 
+        [HttpPost("Merchant/WalletLoad")]
+        public async Task<IActionResult> WalletLoad([FromBody] WalletLoadInit req)
+        {
+            var result = await _service.WalletLoad(req);
+            return Ok(new { success = true });
+        }
+
     }
 }
