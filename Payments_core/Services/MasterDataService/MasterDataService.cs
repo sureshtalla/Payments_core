@@ -18,9 +18,9 @@ namespace Payments_core.Services.MasterDataService
             return await dbContext.GetData<Roles>("sp_roles_get_all", null);
         }
 
-        public async Task<IEnumerable<Provider>> GetProvidersAsync()
+        public async Task<IEnumerable<ProviderDto>> GetProvidersAsync()
         {
-            return await dbContext.GetData<Provider>("sp_master_get_providers",null);
+            return await dbContext.GetData<ProviderDto>("sp_master_get_providers",null);
         }
 
         public async Task<IEnumerable<MdrPricing>> GetMdrPricingAsync()
@@ -59,6 +59,7 @@ namespace Payments_core.Services.MasterDataService
             param.Add("P_Id", request.Id);
             param.Add("p_Code", request.ProviderCode);
             param.Add("p_Name", request.ProviderName);
+            param.Add("p_Product", request.Product_Id);
             param.Add("p_Type", request.ProviderType);
             param.Add("p_Status", request.IsActive);
 
