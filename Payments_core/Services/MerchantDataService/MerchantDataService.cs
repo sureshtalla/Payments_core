@@ -72,5 +72,39 @@ namespace Payments_core.Services.MerchantDataService
 
             return await _dbContext.ExecuteStoredAsync("sp_Create_Wallet_Load_Commission", param);
         }
+
+        public async Task<int> CreateBeneficiary(Beneficiary req)
+        {
+            var param = new
+            {
+                p_UserId = req.UserId,
+                p_BeneficiaryName = req.BeneficiaryName,
+                p_AccountNumber = req.AccountNumber,
+                p_IFSCCode = req.IFSCCode
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_Create_Beneficiary", param);
+        }
+
+        public async Task<int> VerifyBeneficiary(int Id)
+        {
+            var param = new
+            {
+                p_BeneficiaryId = Id
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_Verify_Beneficiary", param);
+        }
+
+        public async Task<IEnumerable<BeneficiaryDto>> GetBeneficiaries(int UserId)
+        {
+            var param = new
+            {
+                p_UserId = UserId
+            };
+
+            return await _dbContext.GetData<BeneficiaryDto>("sp_Verify_Beneficiary", param);
+        }
+
     }
 }

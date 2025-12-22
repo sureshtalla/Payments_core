@@ -38,4 +38,24 @@
         public decimal Amount { get; set; }
     }
 
+    public class Beneficiary
+    {
+        public long UserId { get; set; }
+        public required string BeneficiaryName { get; set; }
+        public required string AccountNumber { get; set; }
+        public required string IFSCCode { get; set; }
+    }
+
+    public class BeneficiaryDto
+    {
+        public long Id { get; set; }
+        public required string BeneficiaryName { get; set; }
+        public required string AccountNumber { get; set; }
+        public required string IFSCCode { get; set; }
+        // true = Verified, false = Pending
+        public bool IsVerified { get; set; }
+        public DateTime CreatedOn { get; set; }
+    }
+
+
 }
