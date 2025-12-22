@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
+using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
 using Payments_core.Services.SuperDistributorService;
 
@@ -47,6 +48,35 @@ namespace Payments_core.Controllers
             var result = await _service.WalletLoad(req);
             await _service.WalletLoadCommissionPercent(req);
             return Ok(new { success = true });
+        }
+
+        [HttpPost("Merchant/CreateBeneficiary")]
+        public async Task<IActionResult> CreateBeneficiary([FromBody] Beneficiary req)
+        {
+            var result = await _service.CreateBeneficiary(req);
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("Merchant/VerifyBeneficiary/{Id}")]
+        public async Task<IActionResult> VerifyBeneficiary(int Id)
+        {
+            var result = await _service.VerifyBeneficiary(Id);
+            return Ok(new { success = true });
+        }
+
+        [HttpGet]
+        [Route("GetBeneficiaries/{UserId}")]
+        public async Task<IActionResult> GetBeneficiaries(int UserId)
+        {
+            try
+            {
+                var data = await _service.GetBeneficiaries(UserId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
         }
 
     }
