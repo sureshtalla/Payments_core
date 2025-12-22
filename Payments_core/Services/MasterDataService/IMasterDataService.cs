@@ -9,7 +9,7 @@ namespace Payments_core.Services.MasterDataService
     {
 
         Task<IEnumerable<Roles>> GetAllRoles();
-        Task<IEnumerable<Provider>> GetProvidersAsync();
+        Task<IEnumerable<ProviderDto>> GetProvidersAsync();
         Task<IEnumerable<MdrPricing>> GetMdrPricingAsync();
         Task<IEnumerable<Biller>> GetBillerAsync(string Category);
 
