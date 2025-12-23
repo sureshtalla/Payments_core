@@ -103,7 +103,7 @@ namespace Payments_core.Services.MerchantDataService
                 p_UserId = UserId
             };
 
-            return await _dbContext.GetData<BeneficiaryDto>("sp_Verify_Beneficiary", param);
+            return await _dbContext.GetData<BeneficiaryDto>("sp_Get_Beneficiaries_By_User", param);
         }
 
         public async Task<int> PayoutAsync(PayoutRequestDto req)
