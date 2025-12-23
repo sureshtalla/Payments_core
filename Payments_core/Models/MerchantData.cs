@@ -57,5 +57,12 @@
         public DateTime CreatedOn { get; set; }
     }
 
+    public class PayoutRequestDto
+    {
+        public long BeneficiaryId { get; set; }
+        public long UserId { get; set; }
+        public decimal Amount { get; set; }
+        public required string TPin { get; set; }
+    }
 
 }
