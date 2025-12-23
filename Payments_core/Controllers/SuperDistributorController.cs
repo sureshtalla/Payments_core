@@ -5,7 +5,7 @@ using Payments_core.Services.SuperDistributorService;
 
 namespace Payments_core.Controllers
 {
-    [Authorize]
+   // [Authorize]
     [ApiController]
     [Route("api/superdistributor")]
     public class SuperDistributorController : Controller
@@ -27,10 +27,10 @@ namespace Payments_core.Controllers
             });
         }
 
-        [HttpGet("GetCards/{roleId}")]
-        public async Task<IActionResult> GetCards(int roleId)
+        [HttpGet("GetCards/{roleId}/{userId}")]
+        public async Task<IActionResult> GetCards(int roleId, long userId)
         {
-            var data = await _service.GetCardsAsync(roleId);
+            var data = await _service.GetCardsAsync(roleId, userId);
             return Ok(data);
         }
 
