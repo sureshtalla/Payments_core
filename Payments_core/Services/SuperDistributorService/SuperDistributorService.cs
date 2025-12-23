@@ -97,9 +97,9 @@ namespace Payments_core.Services.SuperDistributorService
                 Documents = docs
             };
         }
-        public async Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId)
+        public async Task<IEnumerable<SuperDistributorCardDto>> GetCardsAsync(int roleId, long userId)
         {
-            var param = new { p_role_id = roleId };
+            var param = new { p_role_id = roleId, p_user_id = userId };
             return await _dbContext.GetData<SuperDistributorCardDto>(
                 "sp_user_cards_get_all",
                 param
