@@ -106,5 +106,18 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.GetData<BeneficiaryDto>("sp_Verify_Beneficiary", param);
         }
 
+        public async Task<int> PayoutAsync(PayoutRequestDto req)
+        {
+            var param = new
+            {
+                p_BeneficiaryId = req.BeneficiaryId,
+                p_UserId = req.UserId,
+                p_Amount = req.Amount,
+                p_TPin = req.TPin
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_Create_Payout", param);
+        }
+
     }
 }

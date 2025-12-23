@@ -79,5 +79,12 @@ namespace Payments_core.Controllers
             }
         }
 
+        [HttpPost("Merchant/PayoutAsync")]
+        public async Task<IActionResult> PayoutAsync(PayoutRequestDto req)
+        {
+            var result = await _service.PayoutAsync(req);
+            return Ok(new { success = true });
+        }
+
     }
 }
