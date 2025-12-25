@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace Payments_core.Controllers
 {
 
-    [Authorize]
+    //[Authorize]
     [ApiController]
     [Route("api/users")]
     public class UsersController : Controller
@@ -175,6 +175,32 @@ namespace Payments_core.Controllers
         {
             var result = await userDataService.GetUserManagementProfile();
             return Ok(result);
+        }
+        [HttpPut("profile/managestatus")]
+        public async Task<IActionResult> ManageUserStatus([FromBody] ManageUserStatusRequest request)
+        {
+            if (request.Action == "status" && string.IsNullOrWhiteSpace(request.StatusValue))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "StatusValue is required when action is status."
+                });
+            }
+
+            var success = await userDataService.ManageUserStatusAsync(
+                request
+            );
+
+            return Ok(new
+            {
+                success,
+                message = request.Action == "status"
+                    ? "User status updated successfully."
+                    : "User unblocked successfully."
+            });
+
+
         }
 
     }

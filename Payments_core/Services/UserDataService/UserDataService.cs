@@ -95,6 +95,16 @@ namespace Payments_core.Services.UserDataService
             var param = new DynamicParameters();
            return await _dbContext.GetData<UserManagementResponse>("sp_GetUsers", param);
         }
-        
+        public async Task<bool> ManageUserStatusAsync(ManageUserStatusRequest request)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", request.UserId);
+            param.Add("p_action", request.Action);
+            param.Add("p_status", request.StatusValue);
+            await _dbContext.SetData("sp_manage_user_status", param); // ✅ just await
+
+            return true; // return success explicitly
+        }
+
     }
 }

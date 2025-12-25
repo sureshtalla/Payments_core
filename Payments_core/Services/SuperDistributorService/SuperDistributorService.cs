@@ -57,15 +57,17 @@ namespace Payments_core.Services.SuperDistributorService
             // param.Add("p_gst_url", req.GstUrl);
             //param.Add("p_bank_url", req.BankUrl);
 
-            param.Add("p_created_by", req.user_id);
+            param.Add("p_created_by", req.UserId);
             param.Add("p_super_user_id", req.super_user_id);
-
+            param.Add("p_user_id", req.UserId);        // null for insert
+            param.Add("p_merchant_id", req.MerchantId);
             // OUTPUT VALUES
             param.Add("o_user_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
             param.Add("o_merchant_id", dbType: DbType.Int64, direction: ParameterDirection.Output);
+           
 
             await _dbContext.ExecuteAsync(
-                "sp_merchants_create_full",
+                "sp_merchants_upsert_full",
                 param,
                 CommandType.StoredProcedure
             );

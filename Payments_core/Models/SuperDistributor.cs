@@ -2,6 +2,11 @@
 {
     public class SuperDistributorRequest
     {
+        // 🔑 For UPDATE → send values
+        // 🔑 For INSERT → keep NULL
+        public long? UserId { get; set; }
+        public long? MerchantId { get; set; }
+
         // USER
         public long RoleId { get; set; }
         public long? ParentUserId { get; set; }
@@ -35,19 +40,20 @@
         // DOCUMENT URLS (after upload)
         public required string PanUrl { get; set; }
         public required string AadhaarUrl { get; set; }
-       public int user_id { get; set; }
+     
 
         public int super_user_id { get; set; }
 
         //public required string GstUrl { get; set; }
         //public required string BankUrl { get; set; }
+
     }
 
     public class SuperDistributorResponse
     {
         public long UserId { get; set; }
         public long MerchantId { get; set; }
-        public string Message { get; set; } = "SuperDistributor created successfully";
+        public string Message { get; set; } 
     }
 
     public class User
@@ -121,7 +127,8 @@
         public string BusinessAddress { get; set; }
         public string Mobile { get; set; }
         public string KycStatus { get; set; }   // Pending / Verified / Rejected
-        public string Status { get; set; }      // Active / Suspended / Inactive
+        public string Status { get; set; }
+        public string RoleName { get; set; }  
     }
 
     public class uperDistributorProfileDto
