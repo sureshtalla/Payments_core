@@ -11,9 +11,8 @@
         public string Status { get; set; }
         public string RoleName { get; set; }
         public long RoleId { get; set; }
-
-
     }
+
     public class MerchantApprovalRequest
     {
         public long MerchantId { get; set; }
@@ -57,12 +56,61 @@
         public DateTime CreatedOn { get; set; }
     }
 
-    public class PayoutRequestDto
+    public class PayoutRequest
+    {
+        public long BeneficiaryId { get; set; }
+        public long UserId { get; set; }
+        public decimal Amount { get; set; }
+        public decimal FeeAmount { get; set; }
+        public required string TPin { get; set; }
+        public required PayoutMode Mode { get; set; }
+        public string? TransactionId { get; set; }
+        public PayoutStatus Status { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    public class PayoutRequestInit
     {
         public long BeneficiaryId { get; set; }
         public long UserId { get; set; }
         public decimal Amount { get; set; }
         public required string TPin { get; set; }
+        public required PayoutMode Mode { get; set; }
+        public decimal FeeAmount { get; set; }
+    }
+
+    public class WalletTransferInit
+    {
+        public long FromUserId { get; set; }
+        public long ToUserId { get; set; }
+        public decimal Amount { get; set; }
+        public string? Reason { get; set; }
+        public TransactionType TransactionType { get; set; }
+        // True for Wallet Transfer and False for Wallet Adjustment
+        public bool IsWalletTransfer { get; set; }
+    }
+
+    public enum PayoutMode
+    {
+        IMPS = 1,
+        NEFT = 2,
+        UPI = 3,
+        BANK_TRANSFER = 4
+    }
+
+    public enum PayoutStatus
+    {
+        INITIATED = 1,
+        PENDING = 2,
+        SUCCESS = 3,
+        FAILED = 4,
+        REVERSED = 5
+    }
+
+    public enum TransactionType
+    {
+        CREDIT = 1,
+        DEBIT = 2
     }
 
 }

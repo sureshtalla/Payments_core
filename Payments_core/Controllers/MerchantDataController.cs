@@ -15,7 +15,7 @@ namespace Payments_core.Controllers
     {
         private readonly IMerchantDataService _service;
         public MerchantDataController(IMerchantDataService service) { _service = service; }
-       
+
         [HttpGet("GetMerchantsData")]
         public async Task<IActionResult> GetMerchantsData()
         {
@@ -80,9 +80,31 @@ namespace Payments_core.Controllers
         }
 
         [HttpPost("Merchant/PayoutAsync")]
-        public async Task<IActionResult> PayoutAsync(PayoutRequestDto req)
+        public async Task<IActionResult> PayoutAsync(PayoutRequestInit req)
         {
-            var result = await _service.PayoutAsync(req);
+            PayoutRequest request = new PayoutRequest
+            {
+                UserId = req.UserId,
+                Amount = req.Amount,
+                FeeAmount = req.FeeAmount,
+                Mode = req.Mode,
+                TPin = req.TPin,
+                BeneficiaryId = req.BeneficiaryId,
+                TransactionId = Guid.NewGuid().ToString("N").ToUpper()
+            };
+
+            var response = await _service.PayoutInitAsync(request);
+            //To be done
+            request.Status = PayoutStatus.SUCCESS;
+            request.Reason = "Success";
+            var result = await _service.PayoutAsync(request);
+            return Ok(new { success = true });
+        }
+
+        [HttpPost("Merchant/WalletTransfer")]
+        public async Task<IActionResult> WalletTransfer(WalletTransferInit req)
+        {
+            var response = await _service.WalletTransfer(req);
             return Ok(new { success = true });
         }
 
