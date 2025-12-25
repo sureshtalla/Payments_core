@@ -60,5 +60,12 @@
         public string Status { get; set; }
         public DateTime last_login { get; set; }
     }
+    public class ManageUserStatusRequest
+    {
+        public long UserId { get; set; }
+        public string Action { get; set; } // "status" | "unblock"
+        public string StatusValue { get; set; } // REQUIRED when action = "status"
+
+    }
 
 }

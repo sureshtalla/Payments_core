@@ -14,8 +14,20 @@ namespace Payments_core.Controllers
         public SuperDistributorController(ISuperDistributorService service) { _service = service; }
 
         // 🔵 Full onboarding (User + Merchant + KYC + Docs)
+        //[HttpPost("full")]
+        //public async Task<IActionResult> CreateFull([FromBody] SuperDistributorRequest req)
+        //{
+        //    var (userId, merchantId) = await _service.CreateFullOnboardingAsync(req);
+
+        //    return Ok(new SuperDistributorResponse
+        //    {
+        //        UserId = userId,
+        //        MerchantId = merchantId,
+        //        Message = "Full onboarding created successfully"
+        //    });
+        //}
         [HttpPost("full")]
-        public async Task<IActionResult> CreateFull([FromBody] SuperDistributorRequest req)
+        public async Task<IActionResult> UpsertFull([FromBody] SuperDistributorRequest req)
         {
             var (userId, merchantId) = await _service.CreateFullOnboardingAsync(req);
 
@@ -23,9 +35,13 @@ namespace Payments_core.Controllers
             {
                 UserId = userId,
                 MerchantId = merchantId,
-                Message = "Full onboarding created successfully"
+                Message = req.UserId == null
+                    ? "Full onboarding created/updated successfully"
+                    : "Full onboarding created/updated successfully"
             });
         }
+
+
 
         [HttpGet("GetCards/{roleId}/{userId}")]
         public async Task<IActionResult> GetCards(int roleId, long userId)
