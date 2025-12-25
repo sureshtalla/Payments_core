@@ -1,4 +1,5 @@
-﻿using Payments_core.Models;
+﻿using Microsoft.AspNetCore.Mvc;
+using Payments_core.Models;
 
 namespace Payments_core.Services.MerchantDataService
 {
@@ -12,6 +13,8 @@ namespace Payments_core.Services.MerchantDataService
         Task<int> CreateBeneficiary(Beneficiary req);
         Task<int> VerifyBeneficiary(int Id);
         Task<IEnumerable<BeneficiaryDto>> GetBeneficiaries(int UserId);
-        Task<int> PayoutAsync(PayoutRequestDto req);
+        Task<int> PayoutInitAsync(PayoutRequest req);
+        Task<int> PayoutAsync(PayoutRequest req);
+        Task<int> WalletTransfer(WalletTransferInit req);
     }
 }

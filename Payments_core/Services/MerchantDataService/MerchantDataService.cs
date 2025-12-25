@@ -58,7 +58,7 @@ namespace Payments_core.Services.MerchantDataService
 
         public async Task<int> WalletLoadCommissionPercent(WalletLoadInit req)
         {
-            // To Be modify the p_WalletAmount
+            // To Be done the p_WalletAmount
             var param = new
             {
                 p_UserId = req.UserId,                
@@ -106,17 +106,51 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.GetData<BeneficiaryDto>("sp_Get_Beneficiaries_By_User", param);
         }
 
-        public async Task<int> PayoutAsync(PayoutRequestDto req)
+        public async Task<int> PayoutInitAsync(PayoutRequest req)
         {
             var param = new
             {
                 p_BeneficiaryId = req.BeneficiaryId,
                 p_UserId = req.UserId,
                 p_Amount = req.Amount,
+                p_FeeAmount = req.FeeAmount,
+                p_Mode = req.Mode,
+                p_TransactionId = req.TransactionId,
                 p_TPin = req.TPin
             };
 
+            return await _dbContext.ExecuteStoredAsync("sp_Payout_Init", param);
+        }
+
+        public async Task<int> PayoutAsync(PayoutRequest req)
+        {
+            var param = new
+            {
+                p_BeneficiaryId = req.BeneficiaryId,
+                p_UserId = req.UserId,
+                p_Amount = req.Amount,
+                p_FeeAmount = req.FeeAmount,
+                p_Status = req.Status,
+                p_Reason = req.Reason,
+                p_TransactionId = req.TransactionId
+            };
+
             return await _dbContext.ExecuteStoredAsync("sp_Create_Payout", param);
+        }
+
+        public async Task<int> WalletTransfer(WalletTransferInit req)
+        {
+            var param = new
+            {
+                p_FromUserId = req.FromUserId,
+                p_ToUserId = req.ToUserId,
+                p_IsWalletTransfer = req.IsWalletTransfer,
+                p_TransactionType = req.TransactionType,
+                p_Amount = req.Amount,
+                p_Reason = req.Reason
+            };
+
+            return await _dbContext.ExecuteStoredAsync("sp_Wallet_Transfer", param);
         }
 
     }
