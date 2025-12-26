@@ -8,7 +8,7 @@ namespace Payments_core.Services.PricingMDRDataService
         Task<IEnumerable<MdrPricingDto>> GetMdrPricing(string? category, int? providerId);
         Task<MdrPricingDto?> InsertMdrPricing(MdrPricingCreateRequest request);
         Task<MdrPricingDto?> UpdateMdrPricing(MdrPricingUpdateRequest request);
-        Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(string CategoryId, int ProviderId);
+        Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(int ProviderId);
         Task<int> AddOrUpdateCommissionSchemes(CommissionSchemeRequest req);
 
 

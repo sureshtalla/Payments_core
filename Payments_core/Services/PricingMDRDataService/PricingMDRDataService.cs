@@ -52,10 +52,10 @@ namespace Payments_core.Services.PricingMDRDataService
             return await _dbContext.GetSingleData<MdrPricingDto>("sp_update_mdr_pricing", p);
         }
 
-        public async Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(string CategoryId, int ProviderId)
+        public async Task<IEnumerable<CommissionSchemeDto>> GetCommissionSchemes(int ProviderId)
         {
             var param = new DynamicParameters();
-            param.Add("p_CategoryId", CategoryId);
+           
             param.Add("p_Provider_Id", ProviderId);
 
             return await _dbContext.GetData<CommissionSchemeDto>("GetCommissionSchemes", param);

@@ -72,10 +72,10 @@ namespace Payments_core.Controllers
         }
 
 
-        [HttpGet("GetCommissionSchemes/{CategoryId}/{ProviderId}")]
-        public async Task<IActionResult> GetCommissionSchemes(string CategoryId, int ProviderId)
+        [HttpGet("GetCommissionSchemes/{ProviderId}")]
+        public async Task<IActionResult> GetCommissionSchemes(int ProviderId)
         {
-            var data = await _service.GetCommissionSchemes(CategoryId, ProviderId);
+            var data = await _service.GetCommissionSchemes( ProviderId);
             return Ok(data);
         }
 
