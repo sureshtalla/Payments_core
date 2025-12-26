@@ -148,6 +148,7 @@
         public string PanUrl { get; set; }
         public string AadhaarUrl { get; set; }
         public long SuperUserId { get; set; }
+        public string kyc_status { get; set; }
     }
 
 }
