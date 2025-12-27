@@ -27,6 +27,7 @@ namespace Payments_core
 
             // Dapper context should be scoped (per request), not singleton
             builder.Services.AddScoped<IDapperContext, DapperContext>();
+            builder.Services.AddSingleton<GoogleDriveService>();   // single instance for Drive API
 
             // Master data service
             builder.Services.AddScoped<IMasterDataService, MasterDataService>();
@@ -40,6 +41,9 @@ namespace Payments_core
             builder.Services.AddScoped<IMerchantDataService, MerchantDataService>();
             builder.Services.AddScoped<IPricingMDRDataService, PricingMDRDataService>();
             builder.Services.AddScoped<IMSG91OTPService, MSG91OTPService>();
+
+
+            builder.Services.AddScoped<SuperDistributorService>();
 
             // === CORS ===
             builder.Services.AddCors(options =>

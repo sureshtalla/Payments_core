@@ -17,7 +17,7 @@ namespace Payments_core.Services.SuperDistributorService
         }
 
         // 🔵 1. Full onboarding using single stored procedure
-        public async Task<(long userId, long merchantId)> CreateFullOnboardingAsync(SuperDistributorRequest req)
+        public async Task<(long userId, long merchantId)> CreateFullOnboardingAsync(SuperDistributorRequest req,    string panUrl,    string aadhaarUrl)
         {
             var param = new DynamicParameters();
 
@@ -43,8 +43,8 @@ namespace Payments_core.Services.SuperDistributorService
             param.Add("p_isAuthorVerified", req.isAuthorVerified);
 
             // KYC DOCUMENT URLS
-            param.Add("p_pan_url", req.PanUrl);
-            param.Add("p_aadhaar_url", req.AadhaarUrl);
+            param.Add("p_pan_url", panUrl);
+            param.Add("p_aadhaar_url", aadhaarUrl);
 
             // IMPORTANT: separate fields
             param.Add("p_created_by", req.UserId);  // logged-in user id
@@ -120,5 +120,11 @@ namespace Payments_core.Services.SuperDistributorService
             return result.FirstOrDefault();
         }
 
+        public async Task<List<GetFilesinfo>> GetFiles(long userId)
+        {
+            var param = new { p_user_id = userId };
+            var result = await _dbContext.GetData<GetFilesinfo>("sp_get_user_kyc_files", param);
+            return result.ToList(); // return all records
+        }
     }
 }
