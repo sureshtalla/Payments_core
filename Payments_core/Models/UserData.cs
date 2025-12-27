@@ -40,7 +40,9 @@
         public int failed_attempts { get; set; }
         public bool is_blocked { get; set; }
         public DateTime? blocked_until { get; set; }
-
+        public required string PAN { get; set; }
+        public required string Aadhar { get; set; }
+        public required string Address { get; set; }
     }
 
     public class UserUpdateProfileRequest
