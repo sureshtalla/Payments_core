@@ -1,4 +1,7 @@
-﻿namespace Payments_core.Models
+﻿using Swashbuckle.AspNetCore.Annotations;
+using System.Text.Json.Serialization;
+
+namespace Payments_core.Models
 {
     public class SuperDistributorRequest
     {
@@ -18,7 +21,7 @@
 
         // MERCHANT
         //public required string LegalName { get; set; }
-       // public required string TradeName { get; set; }
+        // public required string TradeName { get; set; }
         //public required string BusinessType { get; set; }
         //public required string Category { get; set; }
         //public required string WebsiteUrl { get; set; }
@@ -38,14 +41,20 @@
         //public required string BankIfsc { get; set; }
         public bool isAuthorVerified { get; set; }
         // DOCUMENT URLS (after upload)
-        public required string PanUrl { get; set; }
-        public required string AadhaarUrl { get; set; }
-     
+
+
+
+
+        // IFormFile for binding uploaded files
+        public IFormFile PanFile { get; set; }
+        public IFormFile AadhaarFile { get; set; }
+
 
         public int super_user_id { get; set; }
 
         //public required string GstUrl { get; set; }
         //public required string BankUrl { get; set; }
+
 
     }
 
@@ -53,7 +62,9 @@
     {
         public long UserId { get; set; }
         public long MerchantId { get; set; }
-        public string Message { get; set; } 
+        public string Message { get; set; }
+        public string PanUrl { get; set; }
+        public string AadhaarUrl { get; set; }
     }
 
     public class User
@@ -99,8 +110,8 @@
         public required string RiskLevel { get; set; }
         public required string Status { get; set; }
         public required string Notes { get; set; }
-       
-        
+
+
     }
     public class KycDocument
     {
@@ -128,7 +139,7 @@
         public string Mobile { get; set; }
         public string KycStatus { get; set; }   // Pending / Verified / Rejected
         public string Status { get; set; }
-        public string RoleName { get; set; }  
+        public string RoleName { get; set; }
     }
 
     public class uperDistributorProfileDto
@@ -150,5 +161,9 @@
         public long SuperUserId { get; set; }
         public string kyc_status { get; set; }
     }
-
+    public class GetFilesinfo
+    {
+        public string Documenttype { get; set; }
+        public string FilePath { get; set; }
+    }
 }
