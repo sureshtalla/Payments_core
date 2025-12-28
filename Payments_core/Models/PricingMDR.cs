@@ -84,6 +84,9 @@
 
         public int Product_Category_Id { get; set; }
 
+        public int ProviderId { get; set; }
+        public int PaymentModeId { get; set; }
+
         public decimal Price { get; set; }
         public string? Description { get; set; }
 
@@ -98,6 +101,8 @@
         public string? RoleName { get; set; }
         public string? Merchant { get; set; }
         public string? ProductCategory { get; set; }
+        public string? Providers { get; set; }
+        public string? PaymentMode { get; set; }
     }
 
     public class SpecialPriceRequest
@@ -105,7 +110,8 @@
         public long Id { get; set; }
         public long UserId { get; set; }
         public int ProductCategoryId { get; set; }
-
+        public int ProviderId { get; set; }
+        public int PaymentModeId { get; set; }
         public decimal Price { get; set; }
         public string Description { get; set; }
 
