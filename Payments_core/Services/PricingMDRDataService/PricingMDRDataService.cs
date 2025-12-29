@@ -88,6 +88,8 @@ namespace Payments_core.Services.PricingMDRDataService
             var p= new DynamicParameters();
             p.Add("P_Id", req.Id);
             p.Add("p_user_id", req.UserId);
+            p.Add("p_providerId", req.ProviderId);
+            p.Add("p_paymentModeId", req.PaymentModeId);
             p.Add("p_product_category_id", req.ProductCategoryId);
             p.Add("p_price", req.Price);
             p.Add("p_description", req.Description);
