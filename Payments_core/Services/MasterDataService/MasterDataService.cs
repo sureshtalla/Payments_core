@@ -59,6 +59,7 @@ namespace Payments_core.Services.MasterDataService
             param.Add("P_Id", request.Id);
             param.Add("p_Code", request.ProviderCode);
             param.Add("p_Name", request.ProviderName);
+            param.Add("p_ShotName",request.ShotName);
             param.Add("p_Product", request.Product_Id);
             param.Add("p_Type", request.ProviderType);
             param.Add("p_Status", request.IsActive);
