@@ -81,8 +81,9 @@
         public long Id { get; set; }
 
         public long user_id { get; set; }
-
         public int Product_Category_Id { get; set; }
+        public int ProviderId { get; set; }
+        public int paymentModeId { get; set; }
         public decimal Price { get; set; }
         public string? Description { get; set; }
 
