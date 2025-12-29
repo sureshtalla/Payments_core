@@ -12,7 +12,6 @@
         public int Id { get; set; }
         public required string ProviderCode { get; set; }
         public required string ProviderName { get; set; }
-        public required string ShotName { get; set; }
         public ProviderType ProviderType { get; set; } // JSON as required string
         public string? IsActive { get; set; }
         public int Product_Id { get; set; }
@@ -25,7 +24,6 @@
         public int Id { get; set; }
         public required string ProviderCode { get; set; }
         public required string ProviderName { get; set; }
-        public required string ShotName { get; set; }
         public required string ProviderType { get; set; } // JSON as required string
         public required string IsActive { get; set; }
         public required string Product { get; set; }
