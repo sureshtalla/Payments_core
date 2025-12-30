@@ -1,6 +1,9 @@
 ﻿using Dapper;
+using MySqlConnector;
 using Payments_core.Models;
 using Payments_core.Services.DataLayer;
+using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -105,6 +108,46 @@ namespace Payments_core.Services.UserDataService
 
             return true; // return success explicitly
         }
+        public async Task<string?> GetUserPasswordHashAsync(long userId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
 
+            var result = await _dbContext.GetData<string>(
+                "sp_GetUserPasswordHash", param);
+
+            return result.FirstOrDefault();
+        }
+
+        public async Task<bool> UpdateUserPasswordAsync(long userId, string passwordHash)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+            param.Add("p_password_hash", passwordHash);
+
+            await _dbContext.SetData("sp_UpdateUserPassword", param);
+            return true;
+        }
+
+        public async Task<string?> GetUserTinNoAsync(long userId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+
+            var result = await _dbContext.GetData<string>(
+                "sp_GetUserTinNo", param);
+
+            return result.FirstOrDefault();
+        }
+
+        public async Task<bool> UpdateUserTinNoAsync(long userId, string tinNo)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+            param.Add("p_tin_no", tinNo);
+
+            await _dbContext.SetData("sp_UpdateUserTinNo", param);
+            return true;
+        }
     }
 }

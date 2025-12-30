@@ -1,12 +1,13 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Payments_core.Models;
 using Payments_core.Services.OTPService;
 using Payments_core.Services.UserDataService;
-using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Payments_core.Controllers
 {
@@ -199,9 +200,58 @@ namespace Payments_core.Controllers
                     ? "User status updated successfully."
                     : "User unblocked successfully."
             });
-
-
         }
+
+        [HttpPost("resetpassword")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            if (request.NewPassword != request.ConfirmPassword)
+                return BadRequest(new { alert = "New password and confirm password do not match" });
+
+            // 🔐 Get existing hash
+            var storedHash = await userDataService.GetUserPasswordHashAsync(request.UserId);
+            if (storedHash == null)
+                return BadRequest(new { alert = "User not found" });
+
+            // 🔐 Compare old password
+            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, storedHash))
+                return BadRequest(new { alert = "Old password is incorrect" });
+
+            // 🔐 Hash new password
+            var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            await userDataService.UpdateUserPasswordAsync(request.UserId, newHash);
+
+            return Ok(new { message = "Password updated successfully" });
+        }
+
+        [HttpPost("updatetin")]
+        public async Task<IActionResult> UpdateTin([FromBody] UpdateTinRequest request)
+        {
+            // 1️⃣ New & confirm must match
+            if (request.TinNo != request.ConfirmTinNo)
+                return BadRequest(new { alert = "TIN number and confirm TIN do not match" });
+
+            // 2️⃣ Validate 6-digit format
+            if (!Regex.IsMatch(request.TinNo, @"^\d{6}$"))
+                return BadRequest(new { alert = "TIN must be exactly 6 digits" });
+
+            // 3️⃣ Get existing TIN
+            var existingTin = await userDataService.GetUserTinNoAsync(request.UserId);
+            if (existingTin == null)
+                return BadRequest(new { alert = "User not found" });
+
+            // 4️⃣ Compare old TIN
+            if (existingTin != request.OldTinNo)
+                return BadRequest(new { alert = "Old TIN number is incorrect" });
+
+            // 5️⃣ Update TIN
+            await userDataService.UpdateUserTinNoAsync(request.UserId, request.TinNo);
+
+            return Ok(new { message = "TIN updated successfully" });
+        }
+
+
 
     }
 }
