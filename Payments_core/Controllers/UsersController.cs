@@ -225,8 +225,8 @@ namespace Payments_core.Controllers
             return Ok(new { message = "Password updated successfully" });
         }
 
-        [HttpPost("updatetin")]
-        public async Task<IActionResult> UpdateTin([FromBody] UpdateTinRequest request)
+        [HttpPost("updateTpin")]
+        public async Task<IActionResult> UpdateTpin([FromBody] UpdateTinRequest request)
         {
             // 1️⃣ New & confirm must match
             if (request.TinNo != request.ConfirmTinNo)
