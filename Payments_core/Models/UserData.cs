@@ -55,12 +55,13 @@
     public class UserManagementResponse
     {
         public long Id { get; set; }
-        public  string full_name { get; set; }
+        public string full_name { get; set; }
         public string MerchantName { get; set; }
         public string Email { get; set; }
         public string Role { get; set; }
         public string Status { get; set; }
         public DateTime last_login { get; set; }
+        public bool is_blocked { get; set; }
     }
     public class ManageUserStatusRequest
     {
