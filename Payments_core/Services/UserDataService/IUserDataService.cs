@@ -15,5 +15,11 @@ namespace Payments_core.Services.UserDataService
         Task<bool> UpdateLoginAttemptAsync(UserProfileResponse user);
         Task<IEnumerable<UserManagementResponse?>> GetUserManagementProfile();
         Task<bool> ManageUserStatusAsync(ManageUserStatusRequest request);
+
+        Task<string?> GetUserPasswordHashAsync(long userId);
+        Task<bool> UpdateUserPasswordAsync(long userId, string passwordHash);
+
+        Task<string?> GetUserTinNoAsync(long userId);
+        Task<bool> UpdateUserTinNoAsync(long userId, string tinNo);
     }
 }

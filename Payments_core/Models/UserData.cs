@@ -69,5 +69,20 @@
         public string StatusValue { get; set; } // REQUIRED when action = "status"
 
     }
+    public class ResetPasswordRequest
+    {
+        public long UserId { get; set; }
+        public string OldPassword { get; set; }
+        public string NewPassword { get; set; }
+        public string ConfirmPassword { get; set; }
+    }
+    public class UpdateTinRequest
+    {
+        public long UserId { get; set; }
+        public string OldTinNo { get; set; }
+        public string TinNo { get; set; }
+        public string ConfirmTinNo { get; set; }
+    }
+
 
 }
