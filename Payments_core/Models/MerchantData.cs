@@ -90,6 +90,18 @@
         public bool IsWalletTransfer { get; set; }
     }
 
+    public class LedgerReport
+    {
+        public DateTime TransactionDate { get; set; }
+        public required string TransactionType { get; set; }
+        public decimal Amount { get; set; }
+        public decimal Charges { get; set; }
+        public decimal Commission { get; set; }
+        public decimal GST { get; set; }
+        public decimal TDS { get; set; }
+        public decimal Balance { get; set; }
+    }
+
     public enum PayoutMode
     {
         IMPS = 1,

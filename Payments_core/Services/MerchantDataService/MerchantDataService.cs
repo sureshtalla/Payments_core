@@ -153,5 +153,17 @@ namespace Payments_core.Services.MerchantDataService
             return await _dbContext.ExecuteStoredAsync("sp_Wallet_Transfer", param);
         }
 
+        public async Task<IEnumerable<LedgerReport>> GetLedgerReport(DateTime FromDate, DateTime ToDate, int TransactionType, int UserId)
+        {
+            var param = new
+            {
+                p_FromDate = FromDate,
+                p_ToDate = ToDate,
+                p_TransactionType = TransactionType,
+                p_UserId = UserId
+            };
+
+            return await _dbContext.GetData<LedgerReport>("sp_Get_LedgerReport", param);
+        }
     }
 }

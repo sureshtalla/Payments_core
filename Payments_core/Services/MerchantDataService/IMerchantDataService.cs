@@ -16,5 +16,6 @@ namespace Payments_core.Services.MerchantDataService
         Task<int> PayoutInitAsync(PayoutRequest req);
         Task<int> PayoutAsync(PayoutRequest req);
         Task<int> WalletTransfer(WalletTransferInit req);
+        Task<IEnumerable<LedgerReport>> GetLedgerReport(DateTime FromDate, DateTime ToDate, int TransactionType, int UserId);
     }
 }

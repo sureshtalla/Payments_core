@@ -108,5 +108,19 @@ namespace Payments_core.Controllers
             return Ok(new { success = true });
         }
 
+        [HttpGet]
+        [Route("GetLedgerReport/{FromDate}/{ToDate}/{TransactionType}/{UserId}")]
+        public async Task<IActionResult> GetLedgerReport(DateTime FromDate, DateTime ToDate, int TransactionType, int UserId)
+        {
+            try
+            {
+                var data = await _service.GetLedgerReport(FromDate, ToDate, TransactionType, UserId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }
