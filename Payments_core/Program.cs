@@ -1,5 +1,4 @@
-﻿
-using System.Text;
+﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Payments_core.Services.DataLayer;
@@ -42,7 +41,6 @@ namespace Payments_core
             builder.Services.AddScoped<IPricingMDRDataService, PricingMDRDataService>();
             builder.Services.AddScoped<IMSG91OTPService, MSG91OTPService>();
 
-
             builder.Services.AddScoped<SuperDistributorService>();
 
             // === CORS ===
@@ -51,7 +49,7 @@ namespace Payments_core
                 options.AddPolicy("AllowRCPWClient", policy =>
                 {
                     policy.WithOrigins(
-                            "http://localhost:4200" ,
+                            "http://localhost:4200",
                             "https://merchant.fastcashfnx.in"
                         )
                         .AllowAnyMethod()
@@ -61,7 +59,6 @@ namespace Payments_core
             });
 
             // (JWT config can stay commented for now if you’re not using it)
-            
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -80,12 +77,85 @@ namespace Payments_core
                     ValidAudience = jwtSettings["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
                 };
-            });            
+            });
 
             var app = builder.Build();
 
             // Static files (if you serve anything from wwwroot)
             app.UseStaticFiles();
+
+            // ✅ UPDATED: Return clean JSON for duplicates + real server errors
+            app.Use(async (context, next) =>
+            {
+                try
+                {
+                    await next();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Unhandled Exception:");
+                    Console.WriteLine(ex);
+
+                    var rawMsg = (ex.InnerException?.Message ?? ex.Message ?? "").ToLowerInvariant();
+
+                    int statusCode = StatusCodes.Status500InternalServerError;
+                    string code = "SERVER_ERROR";
+                    string message = "We couldn't complete your request right now. Please try again.";
+                    string? field = null;
+
+                    // ✅ Detect duplicates and return 409 with exact field message
+                    if (rawMsg.Contains("duplicate") ||
+                        rawMsg.Contains("duplicate entry") ||
+                        rawMsg.Contains("already exists") ||
+                        rawMsg.Contains("unique") ||
+                        rawMsg.Contains("cannot insert duplicate key"))
+                    {
+                        statusCode = StatusCodes.Status409Conflict;
+                        code = "DUPLICATE_ENTRY";
+                        message = "This record already exists. Please use different details.";
+
+                        // Identify which field (based on error text / unique index name)
+                        if (rawMsg.Contains("pan") || rawMsg.Contains("uq_") && rawMsg.Contains("pan"))
+                        {
+                            code = "DUPLICATE_PAN";
+                            message = "PAN number already exists.";
+                            field = "pan";
+                        }
+                        else if (rawMsg.Contains("aadhaar") || rawMsg.Contains("aadhar") ||
+                                 rawMsg.Contains("uq_") && (rawMsg.Contains("aadhaar") || rawMsg.Contains("aadhar")))
+                        {
+                            code = "DUPLICATE_AADHAAR";
+                            message = "Aadhaar number already exists.";
+                            field = "aadhaar";
+                        }
+                        else if (rawMsg.Contains("email") || rawMsg.Contains("uq_") && rawMsg.Contains("email"))
+                        {
+                            code = "DUPLICATE_EMAIL";
+                            message = "Email already exists.";
+                            field = "email";
+                        }
+                        else if (rawMsg.Contains("mobile") || rawMsg.Contains("phone") || rawMsg.Contains("contact") ||
+                                 rawMsg.Contains("uq_") && rawMsg.Contains("mobile"))
+                        {
+                            code = "DUPLICATE_MOBILE";
+                            message = "Mobile number already exists.";
+                            field = "mobile";
+                        }
+                    }
+
+                    context.Response.StatusCode = statusCode;
+                    context.Response.ContentType = "application/json";
+
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        success = false,
+                        code,
+                        message,
+                        field,
+                        traceId = context.TraceIdentifier
+                    });
+                }
+            });
 
             if (app.Environment.IsDevelopment())
             {
@@ -103,7 +173,6 @@ namespace Payments_core
             app.MapControllers();
 
             app.Run();
-
         }
     }
 }
