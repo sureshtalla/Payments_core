@@ -21,5 +21,9 @@ namespace Payments_core.Services.UserDataService
 
         Task<string?> GetUserTinNoAsync(long userId);
         Task<bool> UpdateUserTinNoAsync(long userId, string tinNo);
+
+        Task<bool> SaveHashedOtpAsync(string mobile, string otpHash, DateTime expiry);
+        Task<(string? OtpHash, DateTime? Expiry, bool IsVerified)> GetHashedOtpAsync(string mobile);
+        Task<bool> VerifyMobileAsync(string mobile);
     }
 }

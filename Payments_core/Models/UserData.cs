@@ -84,6 +84,17 @@
         public string TinNo { get; set; }
         public string ConfirmTinNo { get; set; }
     }
+    public class SendOtpRequest
+    {
+        public string Mobile { get; set; }
+        public long UserId { get; set; }
+    }
+
+    public class VerifyMobileOtpRequest
+    {
+        public string Mobile { get; set; }
+        public string Otp { get; set; }
+    }
 
 
 }

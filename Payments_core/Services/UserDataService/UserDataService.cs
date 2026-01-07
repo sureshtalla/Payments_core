@@ -149,5 +149,59 @@ namespace Payments_core.Services.UserDataService
             await _dbContext.SetData("sp_UpdateUserTinNo", param);
             return true;
         }
+
+        public async Task<bool> SaveHashedOtpAsync(string mobile, string otpHash, DateTime expiry)
+        {
+            try
+            {
+                var param = new DynamicParameters();
+                param.Add("p_mobile_no", mobile);
+                param.Add("p_otp_hash", otpHash);
+                param.Add("p_expiry", expiry);
+
+                await _dbContext.SetData("sp_SaveHashedOtp", param);
+                return true;
+            }
+            catch (MySqlException ex) // MySQL
+            {
+                // _logger.LogError(ex, "MySQL error while saving OTP for mobile {Mobile}", mobile);
+                throw new DataServiceException("Database error while saving OTP", ex);
+            }
+            catch (Exception ex)
+            {
+                // _logger.LogError(ex, "Unexpected error while saving OTP for mobile {Mobile}", mobile);
+                throw new DataServiceException("Unexpected error while saving OTP", ex);
+            }
+        }
+        public class DataServiceException : Exception
+        {
+            public DataServiceException(string message, Exception inner)
+                : base(message, inner) { }
+        }
+
+
+        public async Task<(string?, DateTime?, bool)> GetHashedOtpAsync(string mobile)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_mobile_no", mobile);
+
+            var result = await _dbContext.GetData<dynamic>("sp_GetHashedOtp", param);
+            var row = result.FirstOrDefault();
+
+            if (row == null)
+                return (null, null, false);
+
+            return (row.otp_hash, row.otp_expiry, row.is_verified == 1);
+        }
+
+        public async Task<bool> VerifyMobileAsync(string mobile)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_mobile_no", mobile);
+
+            await _dbContext.SetData("sp_VerifyMobile", param);
+            return true;
+        }
+
     }
 }
