@@ -35,13 +35,25 @@ namespace Payments_core.Services.BBPSService
             return await response.Content.ReadAsStringAsync();
         }
 
+        //public async Task<string> PostRawAsync(
+        //string url,
+        //string body,
+        //string contentType)
+        //{
+        //    var content = new StringContent(body, Encoding.UTF8, contentType);
+        //    var response = await _http.PostAsync(url, content);
+        //    return await response.Content.ReadAsStringAsync();
+        //}
+
+
         public async Task<string> PostRawAsync(
         string url,
         string body,
         string contentType)
         {
-            var content = new StringContent(body, Encoding.UTF8, contentType);
+            using var content = new StringContent(body, Encoding.UTF8, contentType);
             var response = await _http.PostAsync(url, content);
+            response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsStringAsync();
         }
 

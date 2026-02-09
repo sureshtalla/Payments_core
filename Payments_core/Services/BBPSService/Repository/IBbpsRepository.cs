@@ -47,6 +47,21 @@ namespace Payments_core.Services.BBPSService.Repository
 
         Task<IEnumerable<string>> GetActiveBillerIds(string environment);
 
+        //Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions();
 
+        //Task UpdateReconAttempt(
+        //    string txnRefId,
+        //    string status,
+        //    string rawStatusXml
+        //);
+
+
+        Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions();
+
+        Task UpdateReconAttempt(
+            string txnRefId,
+            string status,
+            string rawXml
+        );
     }
 }

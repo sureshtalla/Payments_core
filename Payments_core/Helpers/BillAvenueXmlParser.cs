@@ -98,6 +98,34 @@ namespace Payments_core.Helpers
             return billers;
         }
 
+        //public static List<BbpsBillerInputParamDto> ParseBillerInputParams(string xml)
+        //{
+        //    var doc = XDocument.Parse(xml);
+        //    XNamespace ns = doc.Root.GetDefaultNamespace();
+
+        //    return doc
+        //        .Descendants(ns + "paramInfo")
+        //        .Select(x => new BbpsBillerInputParamDto
+        //        {
+        //            ParamName = x.Element(ns + "paramName")?.Value,
+        //            DataType = x.Element(ns + "dataType")?.Value,
+        //            IsOptional =
+        //                string.Equals(
+        //                    x.Element(ns + "isOptional")?.Value,
+        //                    "true",
+        //                    StringComparison.OrdinalIgnoreCase),
+        //            MinLength = int.Parse(x.Element(ns + "minLength")?.Value ?? "0"),
+        //            MaxLength = int.Parse(x.Element(ns + "maxLength")?.Value ?? "0"),
+        //            Visibility =
+        //                string.Equals(
+        //                    x.Element(ns + "visibility")?.Value,
+        //                    "true",
+        //                    StringComparison.OrdinalIgnoreCase)
+        //        })
+        //        .Where(p => !string.IsNullOrWhiteSpace(p.ParamName))
+        //        .ToList();
+        //}
+
         public static List<BbpsBillerInputParamDto> ParseBillerInputParams(string xml)
         {
             var doc = XDocument.Parse(xml);
@@ -107,22 +135,29 @@ namespace Payments_core.Helpers
                 .Descendants(ns + "paramInfo")
                 .Select(x => new BbpsBillerInputParamDto
                 {
-                    ParamName = x.Element(ns + "paramName")?.Value,
+                    ParamName = x.Element(ns + "paramName")?.Value?.Trim(),
                     DataType = x.Element(ns + "dataType")?.Value,
-                    IsOptional =
-                        string.Equals(
-                            x.Element(ns + "isOptional")?.Value,
-                            "true",
-                            StringComparison.OrdinalIgnoreCase),
+                    IsOptional = string.Equals(
+                        x.Element(ns + "isOptional")?.Value,
+                        "true",
+                        StringComparison.OrdinalIgnoreCase),
                     MinLength = int.Parse(x.Element(ns + "minLength")?.Value ?? "0"),
                     MaxLength = int.Parse(x.Element(ns + "maxLength")?.Value ?? "0"),
-                    Visibility =
-                        string.Equals(
-                            x.Element(ns + "visibility")?.Value,
-                            "true",
-                            StringComparison.OrdinalIgnoreCase)
+                    Visibility = string.Equals(
+                        x.Element(ns + "visibility")?.Value,
+                        "true",
+                        StringComparison.OrdinalIgnoreCase)
                 })
-                .Where(p => !string.IsNullOrWhiteSpace(p.ParamName))
+                // ✅ ONLY VALID INPUT FIELDS
+                .Where(p =>
+                    p.Visibility &&
+                    !string.IsNullOrWhiteSpace(p.ParamName) &&
+                    !string.IsNullOrWhiteSpace(p.DataType) &&
+                    p.MaxLength > 0
+                )
+                // ✅ REMOVE DUPLICATES
+                .GroupBy(p => p.ParamName)
+                .Select(g => g.First())
                 .ToList();
         }
     }

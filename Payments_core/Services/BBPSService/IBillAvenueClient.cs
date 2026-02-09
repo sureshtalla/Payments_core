@@ -12,5 +12,6 @@ namespace Payments_core.Services.BBPSService
 
         //Task<string> PostRawAsync(string url, string rawBody);
         Task<string> PostRawAsync(string url, string body, string contentType);
+
     }
 }

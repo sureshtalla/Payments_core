@@ -148,5 +148,29 @@ namespace Payments_core.Services.BBPSService.Repository
             );
         }
 
+        public async Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions()
+        {
+            return await _db.GetData<BbpsPendingTxnDto>(
+                "sp_bbps_get_pending_txns"
+            );
+        }
+
+        public async Task UpdateReconAttempt(
+            string txnRefId,
+            string status,
+            string rawXml)
+        {
+            await _db.ExecuteStoredAsync(
+                "sp_bbps_recon_update",
+                new
+                {
+                    p_txn_ref_id = txnRefId,
+                    p_status = status,
+                    p_raw_xml = rawXml
+                }
+            );
+        }
+
+
     }
 }

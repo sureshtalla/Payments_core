@@ -124,25 +124,18 @@ namespace Payments_core.Helpers
             return true;
         }
 
-      
+
         // =====================================================
         // ENCRYPT FOR MDM (HEX KEY, NO MD5, NO XML DECLARATION)
         // =====================================================
-        public static string EncryptForMdm(string plainText, string workingKeyHex)
+        public static string EncryptForMdm(string plainText, string workingKey)
         {
-            if (string.IsNullOrWhiteSpace(plainText))
-                throw new Exception("Plain text is empty");
-
-            // ✅ HEX → BYTES (MUST BE 16 BYTES)
-            byte[] keyBytes = HexToBytes(workingKeyHex);
-            if (keyBytes.Length != 16)
-                throw new Exception("Invalid WorkingKey length for MDM");
-
+            byte[] keyBytes = Encoding.UTF8.GetBytes(workingKey);
             byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
 
             using var aes = Aes.Create();
-            aes.Key = keyBytes;
-            aes.IV = FixedIV;                  // 00 01 02 ... 0F
+            aes.Key = keyBytes;           // ❗ NO MD5
+            aes.IV = FixedIV;             // 00–0F
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
 
@@ -150,23 +143,15 @@ namespace Payments_core.Helpers
             byte[] cipherBytes =
                 encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
 
-            Console.WriteLine("MDM AES KEY LENGTH = " + keyBytes.Length);
-
             return BytesToHex(cipherBytes);
         }
 
         // =====================================================
         // DECRYPT FOR MDM (HEX KEY, NO MD5)
         // =====================================================
-        public static string DecryptForMdm(string encryptedHex, string workingKeyHex)
+        public static string DecryptForMdm(string encryptedHex, string workingKey)
         {
-            if (string.IsNullOrWhiteSpace(encryptedHex))
-                throw new Exception("Encrypted text is empty");
-
-            byte[] keyBytes = HexToBytes(workingKeyHex);
-            if (keyBytes.Length != 16)
-                throw new Exception("Invalid WorkingKey length for MDM");
-
+            byte[] keyBytes = Encoding.UTF8.GetBytes(workingKey);
             byte[] cipherBytes = HexToBytes(encryptedHex);
 
             using var aes = Aes.Create();

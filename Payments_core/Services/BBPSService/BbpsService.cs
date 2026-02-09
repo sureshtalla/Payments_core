@@ -34,34 +34,44 @@ namespace Payments_core.Services.BBPSService
         // FETCH BILL
         // ---------------------------------------------------------
         public async Task<BbpsFetchResponseDto> FetchBill(
-            long userId,
-            string billerId,
-            Dictionary<string, string> inputParams)
+         long userId,
+         string billerId,
+         Dictionary<string, string> inputParams)
         {
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
+            // 1️⃣ Build NPCI-safe XML
             string xml = BillAvenueXmlBuilder.BuildFetchBillXml(
-                  cfg["AgentId"],
-                  billerId,
-                  inputParams
-              );
+                cfg["InstituteId"],
+                requestId,
+                billerId,
+                inputParams
+            );
 
-            // ✅ PHP-matched crypto
-            string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+            // 2️⃣ Encrypt (STANDARD)
+            string encRequest =
+                BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-            var form = BuildCommonForm(cfg, requestId, encRequest);
+            // 3️⃣ Build form
+            var form =
+                BuildCommonForm(cfg, requestId, encRequest);
 
+            // 4️⃣ Call Fetch API
             string rawResponse = await _client.PostFormAsync(
-             cfg["BaseUrl"] + cfg["FetchUrl"],
-             BuildCommonForm(cfg, requestId, encRequest)
-         );
+                cfg["BaseUrl"] + cfg["FetchUrl"],
+                form
+            );
 
+            // 5️⃣ Decrypt
             string decryptedXml =
                 BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-            var dto = BillAvenueXmlParser.ParseFetch(decryptedXml);
+            // 6️⃣ Parse
+            var dto =
+                BillAvenueXmlParser.ParseFetch(decryptedXml);
 
+            // 7️⃣ Persist
             await _repo.SaveFetchBill(
                 dto.BillRequestId,
                 userId,
@@ -71,7 +81,8 @@ namespace Payments_core.Services.BBPSService
                 dto.DueDate,
                 dto.ResponseCode,
                 dto.ResponseMessage,
-                decryptedXml);
+                decryptedXml
+            );
 
             return dto;
         }
@@ -80,37 +91,43 @@ namespace Payments_core.Services.BBPSService
         // PAY BILL
         // ---------------------------------------------------------
         public async Task<BbpsPayResponseDto> PayBill(
-            long userId,
-            string billerId,
-            string billRequestId,
-            decimal amount,
-            string tpin)
+         long userId,
+         string billerId,
+         string billRequestId,
+         decimal amount,
+         string tpin)
         {
-            var walletTxnId = await _wallet.HoldAmount(
-                userId, amount, "BBPS Bill Payment");
+            var walletTxnId =
+                await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
 
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
-            // ✅ Correct XML
-            var xml = BillAvenueXmlBuilder.BuildPayBillXml(
-                cfg["AgentId"],
-                billerId,
+            long amountInPaise = (long)(amount * 100);
+
+            // 1️⃣ Build NPCI-safe XML
+            string xml = BillAvenueXmlBuilder.BuildPayBillXml(
+                cfg["InstituteId"],
+                requestId,
                 billRequestId,
-                (long)(amount * 100)
+                amountInPaise,
+                cfg["AgentId"]
             );
 
+            // 2️⃣ Encrypt
             string encRequest =
                 BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
             var form =
                 BuildCommonForm(cfg, requestId, encRequest);
 
+            // 3️⃣ Call Pay API
             string rawResponse = await _client.PostFormAsync(
                 cfg["BaseUrl"] + cfg["PayUrl"],
                 form
             );
 
+            // 4️⃣ Decrypt
             string decryptedXml =
                 BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
@@ -133,7 +150,7 @@ namespace Payments_core.Services.BBPSService
                     userId, amount, dto.TxnRefId, "BBPS Bill Payment");
             else
                 await _wallet.ReleaseHold(
-                    userId, amount, walletTxnId, "BBPS Payment Failed");
+                    userId, amount, dto.TxnRefId, "BBPS Payment Failed");
 
             return dto;
         }
@@ -142,31 +159,33 @@ namespace Payments_core.Services.BBPSService
         // STATUS
         // ---------------------------------------------------------
         public async Task<BbpsStatusResponseDto> CheckStatus(
-     string txnRefId,
-     string billRequestId)
+           string txnRefId,
+           string billRequestId)
         {
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
-            // 1️⃣ Build correct XML
-            string xml =
-                BillAvenueXmlBuilder.BuildStatusXmlByTxnRef(txnRefId);
+            // 1️⃣ Build XML
+            string xml = BillAvenueXmlBuilder.BuildStatusXmlByTxnRef(
+                cfg["InstituteId"],
+                requestId,
+                txnRefId
+            );
 
-            // 2️⃣ Encrypt FIRST
+            // 2️⃣ Encrypt
             string encRequest =
                 BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-            // 3️⃣ Build form
             var form =
                 BuildCommonForm(cfg, requestId, encRequest);
 
-            // 4️⃣ Call correct STATUS URL
+            // 3️⃣ Call Status API
             string rawResponse = await _client.PostFormAsync(
                 cfg["BaseUrl"] + cfg["StatusUrl"],
                 form
             );
 
-            // 5️⃣ Decrypt
+            // 4️⃣ Decrypt
             string decryptedXml =
                 BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
@@ -185,45 +204,6 @@ namespace Payments_core.Services.BBPSService
 
         // ---------------------------------------------------------
         // SYNC BILLERS (MDM)
-        // ---------------------------------------------------------
-        //public async Task SyncBillers()
-        //{
-        //    var cfg = _cfg.GetSection("BillAvenue");
-        //    string requestId = BillAvenueRequestId.GenerateForMDM();
-
-        //    var xml = BillAvenueXmlBuilder.BuildBillerInfoRequest(
-        //        cfg["InstituteId"], requestId, "1.0");
-
-        //    string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
-
-        //    var form = new Dictionary<string, string>
-        //    {
-        //        { "accessCode", cfg["AccessCode"] },
-        //        { "requestId", requestId },
-        //        { "ver", "1.0" },
-        //        { "instituteId", cfg["InstituteId"] },
-        //        { "encRequest", encRequest }
-        //    };
-
-        //    string rawResponse = await _client.PostFormAsync(
-        //        cfg["BaseUrl"] + cfg["MdmUrl"], form);
-
-
-        //    string decryptedXml =
-        //        BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
-
-        //    var billers = BillAvenueXmlParser.ParseBillerInfo(decryptedXml);
-        //    foreach (var biller in billers)
-        //    {
-        //        Console.WriteLine($"➡ Calling Upsert for {biller.BillerId}");
-        //        await _repo.UpsertBiller(biller);
-        //    }
-
-        //    Console.WriteLine("===== FULL DECRYPTED XML =====");
-        //    Console.WriteLine(decryptedXml);
-        //    Console.WriteLine("===== END XML =====");
-        //}
-
         // ---------------------------------------------------------
         public async Task SyncBillers()
         {
@@ -293,100 +273,54 @@ namespace Payments_core.Services.BBPSService
             return await _repo.GetBillersByCategory(category);
         }
 
+
         public async Task<List<BbpsBillerInputParamDto>> GetBillerParams(string billerId)
         {
             var cfg = _cfg.GetSection("BillAvenue");
-
             string requestId = BillAvenueRequestId.GenerateForMDM();
 
-            // 1️⃣ Build XML
-            string xml =
-                BillAvenueXmlBuilder.BuildBillerParamsRequestXml(billerId);
+            // 1️⃣ XML
+            string xml = BillAvenueXmlBuilder.BuildBillerParamsRequestXml(billerId);
 
-            Console.WriteLine("========== BBPS MDM BILLER PARAMS ==========");
-            Console.WriteLine($"RequestId  : {requestId}");
-            Console.WriteLine($"BillerId   : {billerId}");
-            Console.WriteLine("Request XML:");
-            Console.WriteLine(xml);
+            // 2️⃣ Encrypt (MDM style)
+            string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-            // 2️⃣ Encrypt
-            //string encRequest =
-            //    BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+            // 3️⃣ URL — EXACTLY LIKE BILLAVENUE CURL
+            string url =
+                $"{cfg["BaseUrl"]}{cfg["MdmUrl"]}" +
+                $"?accessCode={cfg["AccessCode"]}" +
+                $"&requestId={requestId}" +
+                $"&ver={cfg["Version"]}" +
+                $"&instituteId={cfg["InstituteId"]}";
 
-            string encRequest =
-             BillAvenueCrypto.EncryptForMdm(xml, cfg["WorkingKey"]);
+            // 4️⃣ POST RAW HEX (NOT FORM)
+            string rawResponse = await _client.PostRawAsync(
+                url,
+                encRequest,
+                "text/plain"
+            );
 
-            Console.WriteLine("Encrypted Request (HEX):");
-            Console.WriteLine(encRequest);
+            // 5️⃣ Decrypt
+            //string decryptedXml =
+            //    BillAvenueCrypto.LooksLikeHex(rawResponse)
+            //        ? BillAvenueCrypto.DecryptForMdm(rawResponse, cfg["WorkingKey"])
+            //        : rawResponse;
 
-            // 3️⃣ Build FORM
-            var form = new Dictionary<string, string>
+            //string decryptedXml =
+            //    BillAvenueCrypto.LooksLikeHex(rawResponse)
+            //    ? BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]) // ✅ MD5 BASED
+            //    : rawResponse;
+
+            string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+
+            // 6️⃣ STG BEHAVIOUR (EXPECTED)
+            if (!decryptedXml.Contains("<responseCode>000</responseCode>"))
             {
-                { "accessCode", cfg["AccessCode"] },
-                { "requestId", requestId },
-                { "ver", cfg["Version"] },
-                { "instituteId", cfg["InstituteId"] },
-                { "encRequest", encRequest }
-            };
-
-            string rawResponse = null;
-            string decryptedXml = null;
-
-            try
-            {
-                // 4️⃣ POST FORM
-                rawResponse = await _client.PostFormAsync(
-                    cfg["BaseUrl"] + cfg["MdmUrl"],
-                    form
-                );
-
-                Console.WriteLine("Raw Response:");
-                Console.WriteLine(rawResponse);
-
-                // 5️⃣ Decrypt
-                decryptedXml =
-                BillAvenueCrypto.LooksLikeHex(rawResponse)
-                    ? BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]) // MD5-based
-                    : rawResponse;
-
-                //decryptedXml =
-                //BillAvenueCrypto.LooksLikeHex(rawResponse)
-                //    ? BillAvenueCrypto.DecryptForMdm(rawResponse, cfg["WorkingKey"])
-                //    : rawResponse;
-
-                Console.WriteLine("Decrypted XML:");
-                Console.WriteLine(decryptedXml);
-
-                // 6️⃣ Validate response
-                //if (!decryptedXml.Contains("<responseCode>000</responseCode>"))
-                //{
-                //    Console.WriteLine("❌ MDM FAILED: responseCode is not 000");
-                //    throw new Exception("BBPS MDM (Biller Params) failed");
-                //}
-
-                if (!decryptedXml.Contains("<responseCode>000</responseCode>"))
-                {
-                    Console.WriteLine("⚠️ MDM params not available for this biller. Falling back to Fetch Bill.");
-                    return new List<BbpsBillerInputParamDto>();
-                }
-
-                Console.WriteLine("✅ MDM SUCCESS");
-
-                // 7️⃣ Parse params
-                return BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
+                Console.WriteLine("⚠️ MDM Params not enabled for this biller (STG)");
+                return new List<BbpsBillerInputParamDto>();
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("🔥 EXCEPTION IN BBPS MDM");
-                Console.WriteLine($"Message: {ex.Message}");
-                Console.WriteLine("Raw/Decrypted Response:");
-                Console.WriteLine(decryptedXml ?? rawResponse);
-                throw;
-            }
-            finally
-            {
-                Console.WriteLine("========== END BBPS MDM ==========\n");
-            }
+
+            return BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
         }
 
         private Dictionary<string, string> BuildCommonForm(
