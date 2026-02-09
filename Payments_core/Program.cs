@@ -1,6 +1,8 @@
 ﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Payments_core.Services.BBPSService;
+using Payments_core.Services.BBPSService.Repository;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
@@ -8,6 +10,7 @@ using Payments_core.Services.OTPService;
 using Payments_core.Services.PricingMDRDataService;
 using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
+using Payments_core.Services.WalletService;
 
 namespace Payments_core
 {
@@ -42,6 +45,17 @@ namespace Payments_core
             builder.Services.AddScoped<IMSG91OTPService, MSG91OTPService>();
 
             builder.Services.AddScoped<SuperDistributorService>();
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            // BillAvenue service (BBPS)
+            builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
+            builder.Services.AddHttpClient<IBillAvenueClient, BillAvenueClient>();
+            builder.Services.AddScoped<IBbpsService, BbpsService>();
+            //builder.Services.AddHostedService<BbpsStatusRequeryJob>();
+            builder.Services.AddScoped<IWalletService, WalletService>();
+            builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
+            builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
 
             // === CORS ===
             builder.Services.AddCors(options =>
@@ -89,7 +103,17 @@ namespace Payments_core
             {
                 try
                 {
+                    var requestId = context.TraceIdentifier;
+
+                    Console.WriteLine("----- INCOMING REQUEST -----");
+                    Console.WriteLine($"RequestId : {requestId}");
+                    Console.WriteLine($"Path      : {context.Request.Path}");
+                    Console.WriteLine($"Method    : {context.Request.Method}");
+
                     await next();
+
+                    Console.WriteLine($"Response Status : {context.Response.StatusCode}");
+                    Console.WriteLine("----- REQUEST END -----");
                 }
                 catch (Exception ex)
                 {
