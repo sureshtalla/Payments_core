@@ -7,7 +7,9 @@ namespace Payments_core.Services.BBPSService
         Task<BbpsFetchResponseDto> FetchBill(
             long userId,
             string billerId,
-            Dictionary<string, string> inputParams
+            Dictionary<string, string> inputParams,
+            AgentDeviceInfo agentDeviceInfo,
+            CustomerInfo customerInfo
         );
 
         Task<BbpsPayResponseDto> PayBill(
@@ -17,6 +19,8 @@ namespace Payments_core.Services.BBPSService
             decimal amount,
             string tpin
         );
+
+        Task<BbpsBillValidationResponseDto> ValidateBill(string billerId,Dictionary<string, string> inputParams);
 
         Task<BbpsStatusResponseDto> CheckStatus(
             string txnRefId,

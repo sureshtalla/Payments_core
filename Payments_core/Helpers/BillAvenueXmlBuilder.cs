@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Payments_core.Models.BBPS;
+using System.Collections.Generic;
 using System.Xml.Linq;
 
 namespace Payments_core.Helpers
@@ -8,30 +9,43 @@ namespace Payments_core.Helpers
         // =========================
         // FETCH BILL (NPCI FINAL)
         // =========================
-        public static string BuildFetchBillXml(
-            string instituteId,
-            string requestId,
-            string billerId,
-            Dictionary<string, string> inputParams)
+      public static string BuildFetchBillXml(
+          string instituteId,
+          string agentId,
+          string requestId,
+          string billerId,
+          Dictionary<string, string> inputParams,
+          AgentDeviceInfo deviceInfo,
+          CustomerInfo customerInfo)
         {
-            var inputs = new XElement("inputParams");
-
-            foreach (var kv in inputParams)
-            {
-                inputs.Add(
-                    new XElement("input",
-                        new XElement("paramName", kv.Key),
-                        new XElement("paramValue", kv.Value)
-                    )
-                );
-            }
-
             var doc = new XDocument(
                 new XElement("billFetchRequest",
                     new XElement("instituteId", instituteId),
+                    new XElement("agentId", agentId),
+
+                    // ✅ REQUIRED FOR FASTag
+                    new XElement("agentDeviceInfo",
+                        new XElement("ip", deviceInfo.Ip),
+                        new XElement("initChannel", deviceInfo.InitChannel),
+                        new XElement("mac", deviceInfo.Mac)
+                    ),
+
+                    new XElement("customerInfo",
+                        new XElement("customerMobile", customerInfo.CustomerMobile),
+                        new XElement("customerEmail", customerInfo.CustomerEmail)
+                    ),
+
                     new XElement("requestId", requestId),
                     new XElement("billerId", billerId),
-                    inputs
+
+                    new XElement("inputParams",
+                        inputParams.Select(kv =>
+                            new XElement("input",
+                                new XElement("paramName", kv.Key),
+                                new XElement("paramValue", kv.Value)
+                            )
+                        )
+                    )
                 )
             );
 
@@ -105,5 +119,33 @@ namespace Payments_core.Helpers
                 "</billerInfoRequest>";
         }
 
+        // =========================
+        // BILL VALIDATION (NPCI)
+        // =========================
+        public static string BuildBillValidationXml(
+            string billerId,
+            Dictionary<string, string> inputParams)
+        {
+            var inputs = new XElement("inputParams");
+
+            foreach (var kv in inputParams)
+            {
+                inputs.Add(
+                    new XElement("input",
+                        new XElement("paramName", kv.Key),
+                        new XElement("paramValue", kv.Value)
+                    )
+                );
+            }
+
+            var doc = new XDocument(
+                new XElement("billValidationRequest",
+                    new XElement("billerId", billerId),
+                    inputs
+                )
+            );
+
+            return doc.ToString(SaveOptions.DisableFormatting);
+        }
     }
 }

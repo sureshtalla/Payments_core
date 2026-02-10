@@ -160,5 +160,21 @@ namespace Payments_core.Helpers
                 .Select(g => g.First())
                 .ToList();
         }
+
+        // ---------------- BILL VALIDATION ----------------
+        public static BbpsBillValidationResponseDto ParseBillValidation(string xml)
+        {
+            var doc = XDocument.Parse(xml);
+            XNamespace ns = doc.Root.GetDefaultNamespace();
+            var root = doc.Root;
+
+            return new BbpsBillValidationResponseDto
+            {
+                ResponseCode =
+                    root.Element(ns + "responseCode")?.Value,
+                ResponseMessage =
+                    root.Element(ns + "responseMessage")?.Value
+            };
+        }
     }
 }

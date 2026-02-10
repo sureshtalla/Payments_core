@@ -27,10 +27,12 @@ namespace Payments_core.Controllers
             try
             {
                 var res = await _bbps.FetchBill(
-                    req.UserId,
-                    req.BillerId,
-                    req.Inputs
-                );
+                 req.UserId,
+                 req.BillerId,
+                 req.Inputs,
+                 req.AgentDeviceInfo,
+                 req.CustomerInfo
+             );
 
                 if (res.ResponseCode != "000")
                     return BadRequest(res);
@@ -57,7 +59,7 @@ namespace Payments_core.Controllers
             try
             {
                 var res = await _bbps.PayBill(
-                    req.UserId,
+                    req.UserId,        // ✅ DIRECT FROM PAYLOAD
                     req.BillerId,
                     req.BillRequestId,
                     req.Amount,
@@ -82,6 +84,26 @@ namespace Payments_core.Controllers
                 });
             }
         }
+
+
+        // -------------------------------------------------
+        // BILL VALIDATION
+        // -------------------------------------------------
+        [HttpPost("validate")]
+        public async Task<IActionResult> ValidateBill(
+            [FromBody] FetchReq req)
+        {
+            var res = await _bbps.ValidateBill(
+                req.BillerId,
+                req.Inputs
+            );
+
+            if (!res.IsValid)
+                return BadRequest(res);
+
+            return Ok(res);
+        }
+
 
         // -------------------------------------------------
         // CHECK STATUS
@@ -157,17 +179,25 @@ namespace Payments_core.Controllers
     // -------------------------------------------------
     // REQUEST DTOs
     // -------------------------------------------------
-    public record FetchReq(
-        long UserId,
-        string BillerId,
-        Dictionary<string, string> Inputs
-    );
-
-    public record PayReq(
-        long UserId,
-        string BillerId,
-        string BillRequestId,
-        decimal Amount,
-        string Tpin
-    );
+    //public record FetchReq(
+    //    long UserId,
+    //    string BillerId,
+    //    Dictionary<string, string> Inputs
+    //);
+    public class FetchReq
+    {
+        public long UserId { get; set; }   // from frontend
+        public string BillerId { get; set; }
+        public Dictionary<string, string> Inputs { get; set; }
+        public AgentDeviceInfo AgentDeviceInfo { get; set; }
+        public CustomerInfo CustomerInfo { get; set; }
+    }
+    public class PayReq
+    {
+        public long UserId { get; set; }     // coming from frontend
+        public string BillerId { get; set; }
+        public string BillRequestId { get; set; }
+        public decimal Amount { get; set; }
+        public string Tpin { get; set; }
+    }
 }

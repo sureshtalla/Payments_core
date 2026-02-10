@@ -34,19 +34,24 @@ namespace Payments_core.Services.BBPSService
         // FETCH BILL
         // ---------------------------------------------------------
         public async Task<BbpsFetchResponseDto> FetchBill(
-         long userId,
-         string billerId,
-         Dictionary<string, string> inputParams)
+            long userId,
+            string billerId,
+            Dictionary<string, string> inputParams,
+            AgentDeviceInfo agentDeviceInfo,
+            CustomerInfo customerInfo)
         {
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
-            // 1️⃣ Build NPCI-safe XML
-            string xml = BillAvenueXmlBuilder.BuildFetchBillXml(
+              // 1️⃣ Build NPCI-safe XML
+                string xml = BillAvenueXmlBuilder.BuildFetchBillXml(
                 cfg["InstituteId"],
+                cfg["AgentId"],
                 requestId,
                 billerId,
-                inputParams
+                inputParams,
+                agentDeviceInfo,
+                customerInfo      
             );
 
             // 2️⃣ Encrypt (STANDARD)
@@ -73,16 +78,16 @@ namespace Payments_core.Services.BBPSService
 
             // 7️⃣ Persist
             await _repo.SaveFetchBill(
-                dto.BillRequestId,
-                userId,
-                billerId,
-                dto.CustomerName,
-                dto.BillAmount,
-                dto.DueDate,
-                dto.ResponseCode,
-                dto.ResponseMessage,
-                decryptedXml
-            );
+               dto.BillRequestId,
+               userId,         
+               billerId,
+               dto.CustomerName,
+               dto.BillAmount,
+               dto.DueDate,
+               dto.ResponseCode,
+               dto.ResponseMessage,
+               decryptedXml
+           );
 
             return dto;
         }
@@ -98,7 +103,7 @@ namespace Payments_core.Services.BBPSService
          string tpin)
         {
             var walletTxnId =
-                await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
+                         await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
 
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
@@ -135,15 +140,15 @@ namespace Payments_core.Services.BBPSService
                 BillAvenueXmlParser.ParsePay(decryptedXml);
 
             await _repo.SavePayment(
-                billRequestId,
-                dto.TxnRefId,
-                userId,
-                amount,
-                dto.Status,
-                dto.ResponseCode,
-                dto.ResponseMessage,
-                decryptedXml
-            );
+               billRequestId,
+               dto.TxnRefId,
+               userId,          
+               amount,
+               dto.Status,
+               dto.ResponseCode,
+               dto.ResponseMessage,
+               decryptedXml
+           );
 
             if (dto.Status == "SUCCESS")
                 await _wallet.DebitFromHold(
@@ -153,6 +158,50 @@ namespace Payments_core.Services.BBPSService
                     userId, amount, dto.TxnRefId, "BBPS Payment Failed");
 
             return dto;
+        }
+
+
+        // ---------------------------------------------------------
+        // BILL VALIDATION
+        // ---------------------------------------------------------
+        public async Task<BbpsBillValidationResponseDto> ValidateBill(
+            string billerId,
+            Dictionary<string, string> inputParams)
+        {
+            var cfg = _cfg.GetSection("BillAvenue");
+            string requestId = BillAvenueRequestId.Generate();
+
+            // 1️⃣ Build XML
+            string xml = BillAvenueXmlBuilder.BuildBillValidationXml(
+                billerId,
+                inputParams
+            );
+
+            // 2️⃣ Encrypt (MD5-based – SAME as Fetch/Pay)
+            string encRequest =
+                BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+
+            // 3️⃣ URL
+            string url =
+                $"{cfg["BaseUrl"]}/billpay/extBillValCntrl/billValidationRequest/xml" +
+                $"?accessCode={cfg["AccessCode"]}" +
+                $"&requestId={requestId}" +
+                $"&ver=2.0" +
+                $"&instituteId={cfg["InstituteId"]}";
+
+            // 4️⃣ POST RAW
+            string rawResponse =
+                await _client.PostRawAsync(
+                    url,
+                    encRequest,
+                    "text/plain"
+                );
+
+            // 5️⃣ Decrypt
+            string decryptedXml =
+                BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+
+            return BillAvenueXmlParser.ParseBillValidation(decryptedXml);
         }
 
         // ---------------------------------------------------------
