@@ -9,20 +9,62 @@ namespace Payments_core.Helpers
     public static class BillAvenueXmlParser
     {
         // ---------------- FETCH ----------------
+        //public static BbpsFetchResponseDto ParseFetch(string xml)
+        //{
+        //    var doc = XDocument.Parse(xml);
+        //    XNamespace ns = doc.Root.GetDefaultNamespace();
+        //    var x = doc.Root;
+
+        //    return new BbpsFetchResponseDto
+        //    {
+        //        ResponseCode = x.Element(ns + "responseCode")?.Value,
+        //        ResponseMessage = x.Element(ns + "responseMessage")?.Value,
+        //        BillRequestId = x.Element(ns + "billRequestId")?.Value,
+        //        CustomerName = x.Element(ns + "customerName")?.Value,
+        //        BillAmount = decimal.Parse(x.Element(ns + "billAmount")?.Value ?? "0"),
+        //        DueDate = DateTime.Parse(x.Element(ns + "dueDate")?.Value ?? DateTime.MinValue.ToString())
+        //    };
+        //}
+
         public static BbpsFetchResponseDto ParseFetch(string xml)
         {
             var doc = XDocument.Parse(xml);
-            XNamespace ns = doc.Root.GetDefaultNamespace();
-            var x = doc.Root;
+            var root = doc.Root;
+
+            var responseCode = root.Element("responseCode")?.Value;
+
+            // -------- HANDLE FAILURE (001, 002, etc.) --------
+            if (responseCode != "000")
+            {
+                var errorMessage =
+                    root.Element("errorInfo")
+                        ?.Element("error")
+                        ?.Element("errorMessage")
+                        ?.Value;
+
+                return new BbpsFetchResponseDto
+                {
+                    ResponseCode = responseCode,
+                    ResponseMessage = errorMessage ?? "No pending bill found",
+                    BillAmount = 0,
+                    DueDate = DateTime.MinValue
+                };
+            }
+
+            // -------- SUCCESS (000) --------
+            var billerResponse = root.Element("billerResponse");
 
             return new BbpsFetchResponseDto
             {
-                ResponseCode = x.Element(ns + "responseCode")?.Value,
-                ResponseMessage = x.Element(ns + "responseMessage")?.Value,
-                BillRequestId = x.Element(ns + "billRequestId")?.Value,
-                CustomerName = x.Element(ns + "customerName")?.Value,
-                BillAmount = decimal.Parse(x.Element(ns + "billAmount")?.Value ?? "0"),
-                DueDate = DateTime.Parse(x.Element(ns + "dueDate")?.Value ?? DateTime.MinValue.ToString())
+                ResponseCode = "000",
+                ResponseMessage = "SUCCESS",
+                BillRequestId = root.Element("billRequestId")?.Value,
+                CustomerName = billerResponse?.Element("customerName")?.Value,
+                BillAmount = decimal.Parse(billerResponse?.Element("billAmount")?.Value ?? "0") / 100,
+                DueDate = DateTime.TryParse(
+                    billerResponse?.Element("dueDate")?.Value,
+                    out var d
+                ) ? d : DateTime.MinValue
             };
         }
 

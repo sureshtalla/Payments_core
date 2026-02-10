@@ -56,11 +56,13 @@ namespace Payments_core.Helpers
         // PAY BILL (NPCI FINAL)
         // =========================
         public static string BuildPayBillXml(
-            string instituteId,
-            string requestId,
-            string billRequestId,
-            long amountInPaise,
-            string agentId)
+                string instituteId,
+                string requestId,
+                string billRequestId,
+                long amountInPaise,
+                string agentId,
+                string customerMobile
+            )
         {
             var doc = new XDocument(
                 new XElement("billPaymentRequest",

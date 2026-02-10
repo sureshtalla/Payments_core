@@ -26,13 +26,21 @@ namespace Payments_core.Controllers
         {
             try
             {
+                // 🔐 Backend-generated agent info (NPCI compliant)
+                var agentDeviceInfo = new AgentDeviceInfo
+                {
+                    Ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
+                    InitChannel = "AGT",              // As per BBPS
+                    Mac = Environment.MachineName     // Logical identifier
+                };
+
                 var res = await _bbps.FetchBill(
-                 req.UserId,
-                 req.BillerId,
-                 req.Inputs,
-                 req.AgentDeviceInfo,
-                 req.CustomerInfo
-             );
+                    req.UserId,
+                    req.BillerId,
+                    req.Inputs,
+                    agentDeviceInfo,
+                    req.CustomerInfo
+                );
 
                 if (res.ResponseCode != "000")
                     return BadRequest(res);
@@ -59,12 +67,13 @@ namespace Payments_core.Controllers
             try
             {
                 var res = await _bbps.PayBill(
-                    req.UserId,        // ✅ DIRECT FROM PAYLOAD
-                    req.BillerId,
-                    req.BillRequestId,
-                    req.Amount,
-                    req.Tpin
-                );
+                 req.UserId,
+                 req.BillerId,
+                 req.BillRequestId,
+                 req.Amount,
+                 req.Tpin,
+                 req.CustomerMobile
+             );
 
                 if (res.ResponseCode == "999")
                     return Accepted(res);
@@ -186,11 +195,10 @@ namespace Payments_core.Controllers
     //);
     public class FetchReq
     {
-        public long UserId { get; set; }   // from frontend
-        public string BillerId { get; set; }
-        public Dictionary<string, string> Inputs { get; set; }
-        public AgentDeviceInfo AgentDeviceInfo { get; set; }
-        public CustomerInfo CustomerInfo { get; set; }
+      public long UserId { get; set; }
+      public string BillerId { get; set; }
+      public Dictionary<string, string> Inputs { get; set; }
+      public CustomerInfo CustomerInfo { get; set; }
     }
     public class PayReq
     {
@@ -199,5 +207,7 @@ namespace Payments_core.Controllers
         public string BillRequestId { get; set; }
         public decimal Amount { get; set; }
         public string Tpin { get; set; }
+
+        public string CustomerMobile { get; set; }
     }
 }

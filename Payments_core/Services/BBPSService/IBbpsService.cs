@@ -5,19 +5,20 @@ namespace Payments_core.Services.BBPSService
     public interface IBbpsService
     {
         Task<BbpsFetchResponseDto> FetchBill(
-            long userId,
-            string billerId,
-            Dictionary<string, string> inputParams,
-            AgentDeviceInfo agentDeviceInfo,
-            CustomerInfo customerInfo
-        );
+             long userId,
+             string billerId,
+             Dictionary<string, string> inputParams,
+             AgentDeviceInfo agentDeviceInfo,
+             CustomerInfo customerInfo
+         );
 
         Task<BbpsPayResponseDto> PayBill(
             long userId,
             string billerId,
             string billRequestId,
             decimal amount,
-            string tpin
+            string tpin,
+            string customerMobile
         );
 
         Task<BbpsBillValidationResponseDto> ValidateBill(string billerId,Dictionary<string, string> inputParams);
