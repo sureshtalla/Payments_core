@@ -9,16 +9,23 @@ namespace Payments_core.Services.BBPSService.Repository
         Task<IEnumerable<BbpsBillerListDto>> GetBillersByCategory(string category);
 
         Task SaveFetchBill(
-            string billRequestId,
-            long userId,
-            string billerId,
-            string customerName,
-            decimal amount,
-            DateTime dueDate,
-            string responseCode,
-            string responseMessage,
-            string rawXml
-        );
+        string requestId,
+        string billRequestId,
+        long userId,
+        string agentId,
+        string billerId,
+        string billerCategory,
+        string customerName,
+        string consumerRef,
+        string vehicleRegNo,
+        decimal amount,
+        DateTime? dueDate,
+        string responseCode,
+        string responseMessage,
+        string rawXml
+    );
+
+        Task<string?> GetBillerCategory(string billerId);
 
         Task SavePayment(
             string billRequestId,

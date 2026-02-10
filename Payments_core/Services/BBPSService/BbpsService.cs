@@ -78,16 +78,23 @@ namespace Payments_core.Services.BBPSService
 
             // 7️⃣ Persist
             await _repo.SaveFetchBill(
-               dto.BillRequestId,
-               userId,         
-               billerId,
-               dto.CustomerName,
-               dto.BillAmount,
-               dto.DueDate,
-               dto.ResponseCode,
-               dto.ResponseMessage,
-               decryptedXml
-           );
+              requestId,                     
+              dto.BillRequestId,
+              userId,
+              cfg["AgentId"],                
+              billerId,
+              await _repo.GetBillerCategory(billerId), 
+              dto.CustomerName,
+              null,                            
+              inputParams.ContainsKey("Vehicle Registration Number")
+                  ? inputParams["Vehicle Registration Number"]
+                  : null,
+              dto.BillAmount,
+              dto.DueDate == DateTime.MinValue ? null : dto.DueDate,
+              dto.ResponseCode,
+              dto.ResponseMessage,
+              decryptedXml
+          );
 
             return dto;
         }

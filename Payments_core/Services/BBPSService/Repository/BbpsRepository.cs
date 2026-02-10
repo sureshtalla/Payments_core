@@ -16,24 +16,34 @@ namespace Payments_core.Services.BBPSService.Repository
         }
 
         public async Task SaveFetchBill(
-            string billRequestId,
-            long userId,
-            string billerId,
-            string customerName,
-            decimal amount,
-            DateTime dueDate,
-            string responseCode,
-            string responseMessage,
-            string rawXml)
+         string requestId,
+         string billRequestId,
+         long userId,
+         string agentId,
+         string billerId,
+         string billerCategory,
+         string customerName,
+         string consumerRef,
+         string vehicleRegNo,
+         decimal amount,
+         DateTime? dueDate,
+         string responseCode,
+         string responseMessage,
+         string rawXml)
         {
             await _db.ExecuteStoredAsync(
                 "sp_bbps_fetch_insert",
                 new
                 {
+                    p_request_id = requestId,
                     p_bill_request_id = billRequestId,
                     p_user_id = userId,
+                    p_agent_id = agentId,
                     p_biller_id = billerId,
+                    p_biller_category = billerCategory,
                     p_customer_name = customerName,
+                    p_consumer_ref = consumerRef,
+                    p_vehicle_reg_no = vehicleRegNo,
                     p_bill_amount = amount,
                     p_due_date = dueDate,
                     p_response_code = responseCode,
@@ -146,6 +156,19 @@ namespace Payments_core.Services.BBPSService.Repository
                 "sp_bbps_get_billers_by_category",
                 param
             );
+        }
+
+        public async Task<string?> GetBillerCategory(string billerId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_biller_id", billerId);
+
+            var rows = await _db.GetData<string>(
+                "sp_bbps_get_biller_category",
+                param
+            );
+
+            return rows.FirstOrDefault();
         }
 
         public async Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions()
