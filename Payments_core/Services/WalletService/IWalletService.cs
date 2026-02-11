@@ -5,11 +5,13 @@
         /// <summary>
         /// Hold amount before BBPS payment
         /// </summary>
-        Task<long> HoldAmount(
-            long userId,
-            decimal amount,
-            string narration
-        );
+        //Task<long> HoldAmount(
+        //    long userId,
+        //    decimal amount,
+        //    string narration
+        //);
+
+        Task<string> HoldAmount(long userId, decimal amount, string narration);
 
         /// <summary>
         /// Final debit after BBPS success

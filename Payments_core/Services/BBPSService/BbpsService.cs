@@ -177,7 +177,7 @@ namespace Payments_core.Services.BBPSService
         )
         {
             string requestId = string.Empty;
-            long walletTxnId = 0;
+            string walletTxnId = string.Empty;
 
             try
             {
@@ -324,7 +324,7 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"[BBPS][PAY][ERROR] RequestId={requestId} | {ex}");
 
                 // Wallet safety rollback
-                if (walletTxnId > 0)
+                if (!string.IsNullOrEmpty(walletTxnId))
                 {
                     try
                     {

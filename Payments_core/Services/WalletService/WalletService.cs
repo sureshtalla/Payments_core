@@ -10,7 +10,7 @@ public class WalletService : IWalletService
         _db = db;
     }
 
-    public async Task<long> HoldAmount(long userId, decimal amount, string narration)
+    public async Task<string> HoldAmount(long userId, decimal amount, string narration)
     {
         var txnId = Guid.NewGuid().ToString("N");
 
@@ -22,8 +22,7 @@ public class WalletService : IWalletService
             p_narration = narration
         });
 
-        // Only for internal tracking, NOT for recon
-        return long.Parse(txnId.Substring(0, 18));
+        return txnId; // ✅ return string safely
     }
 
     public Task DebitFromHold(
