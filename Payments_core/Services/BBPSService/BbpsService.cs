@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using static Payments_core.Models.BBPS.BbpsBillerDto;
 using Payments_core.Models;
+using Payments_core.Services.UserDataService;
 
 namespace Payments_core.Services.BBPSService
 {
@@ -17,17 +18,20 @@ namespace Payments_core.Services.BBPSService
         private readonly IBillAvenueClient _client;
         private readonly IBbpsRepository _repo;
         private readonly IWalletService _wallet;
+        private readonly IUserDataService _userDataService;
 
         public BbpsService(
             IConfiguration cfg,
             IBillAvenueClient client,
             IBbpsRepository repo,
-            IWalletService wallet)
+            IWalletService wallet,
+            IUserDataService userDataService)
         {
             _cfg = cfg;
             _client = client;
             _repo = repo;
             _wallet = wallet;
+            _userDataService = userDataService;
         }
 
         // ---------------------------------------------------------
@@ -180,7 +184,28 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"[BBPS][PAY][START] UserId={userId}, BillerId={billerId}, Amount={amount}");
 
                 // -------------------------------------------------
-                // 0️⃣ Ensure customer mobile (BBPS requirement)
+                // 0️⃣ Validate TPIN (BEFORE wallet hold)
+                // -------------------------------------------------
+                Console.WriteLine($"[BBPS][PAY] Validating TPIN for UserId={userId}");
+
+                if (string.IsNullOrWhiteSpace(tpin))
+                {
+                    Console.WriteLine("[BBPS][PAY] TPIN missing");
+                    throw new Exception("TPIN is required");
+                }
+
+                var isValidTpin = await _userDataService.ValidateUserTpin(userId, tpin);
+
+                if (!isValidTpin)
+                {
+                    Console.WriteLine($"[BBPS][PAY] Invalid TPIN for UserId={userId}");
+                    throw new Exception("Invalid TPIN");
+                }
+
+                Console.WriteLine("[BBPS][PAY] TPIN validated successfully");
+
+                // -------------------------------------------------
+                // 1️⃣ Ensure customer mobile (BBPS requirement)
                 // -------------------------------------------------
                 if (string.IsNullOrWhiteSpace(customerMobile))
                 {
@@ -189,7 +214,7 @@ namespace Payments_core.Services.BBPSService
                 }
 
                 // -------------------------------------------------
-                // 1️⃣ Hold wallet amount
+                // 2️⃣ Hold wallet amount
                 // -------------------------------------------------
                 walletTxnId =
                     await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
@@ -205,7 +230,7 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"[BBPS][PAY] AmountInPaise={amountInPaise}");
 
                 // -------------------------------------------------
-                // 2️⃣ Build NPCI-safe XML
+                // 3️⃣ Build NPCI-safe XML
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Building Pay XML | RequestId={requestId}");
 
@@ -219,7 +244,7 @@ namespace Payments_core.Services.BBPSService
                 );
 
                 // -------------------------------------------------
-                // 3️⃣ Encrypt
+                // 4️⃣ Encrypt
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Encrypting request | RequestId={requestId}");
 
@@ -230,7 +255,7 @@ namespace Payments_core.Services.BBPSService
                     BuildCommonForm(cfg, requestId, encRequest);
 
                 // -------------------------------------------------
-                // 4️⃣ Call Pay API
+                // 5️⃣ Call Pay API
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Calling BillAvenue Pay API | RequestId={requestId}");
 
@@ -240,7 +265,7 @@ namespace Payments_core.Services.BBPSService
                 );
 
                 // -------------------------------------------------
-                // 5️⃣ Decrypt
+                // 6️⃣ Decrypt
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Decrypting response | RequestId={requestId}");
 
@@ -248,7 +273,7 @@ namespace Payments_core.Services.BBPSService
                     BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
                 // -------------------------------------------------
-                // 6️⃣ Parse
+                // 7️⃣ Parse
                 // -------------------------------------------------
                 var dto =
                     BillAvenueXmlParser.ParsePay(decryptedXml);
@@ -256,7 +281,7 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"[BBPS][PAY][RESPONSE] Status={dto.Status}, Code={dto.ResponseCode}");
 
                 // -------------------------------------------------
-                // 7️⃣ Save payment
+                // 8️⃣ Save payment
                 // -------------------------------------------------
                 await _repo.SavePayment(
                     billRequestId,
@@ -270,17 +295,25 @@ namespace Payments_core.Services.BBPSService
                 );
 
                 // -------------------------------------------------
-                // 8️⃣ Wallet finalize
+                // 9️⃣ Wallet finalize
                 // -------------------------------------------------
                 if (dto.Status == "SUCCESS")
                 {
                     await _wallet.DebitFromHold(
-                        userId, amount, dto.TxnRefId, "BBPS Bill Payment");
+                        userId,
+                        amount,
+                        dto.TxnRefId,
+                        "BBPS Bill Payment"
+                    );
                 }
                 else
                 {
                     await _wallet.ReleaseHold(
-                        userId, amount, dto.TxnRefId ?? requestId, "BBPS Payment Failed");
+                        userId,
+                        amount,
+                        dto.TxnRefId ?? requestId,
+                        "BBPS Payment Failed"
+                    );
                 }
 
                 Console.WriteLine($"[BBPS][PAY][END] RequestId={requestId}");
@@ -296,11 +329,11 @@ namespace Payments_core.Services.BBPSService
                     try
                     {
                         await _wallet.ReleaseHold(
-                        userId,
-                        amount,
-                        requestId,   // ✅ string refId
-                        "BBPS Payment Failed"
-);
+                            userId,
+                            amount,
+                            requestId,
+                            "BBPS Payment Exception"
+                        );
                     }
                     catch (Exception walletEx)
                     {
@@ -359,8 +392,8 @@ namespace Payments_core.Services.BBPSService
         // STATUS
         // ---------------------------------------------------------
         public async Task<BbpsStatusResponseDto> CheckStatus(
-           string txnRefId,
-           string billRequestId)
+        string txnRefId,
+        string billRequestId)
         {
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
@@ -392,12 +425,23 @@ namespace Payments_core.Services.BBPSService
             var dto =
                 BillAvenueXmlParser.ParseStatus(decryptedXml);
 
+            // 5️⃣ Update DB
             await _repo.UpdateStatus(
                 txnRefId,
                 billRequestId,
                 dto.Status,
                 decryptedXml
             );
+
+            // 🔴 ADD THIS BLOCK (Wallet Finalization)
+            if (dto.Status == "SUCCESS")
+            {
+                await _wallet.FinalizeIfPending(txnRefId);
+            }
+            else if (dto.Status == "FAILED")
+            {
+                await _wallet.RefundIfPending(txnRefId);
+            }
 
             return dto;
         }

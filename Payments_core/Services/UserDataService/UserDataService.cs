@@ -203,5 +203,19 @@ namespace Payments_core.Services.UserDataService
             return true;
         }
 
+        public async Task<bool> ValidateUserTpin(long userId, string tpin)
+        {
+            var parameters = new DynamicParameters();
+            parameters.Add("p_user_id", userId);
+            parameters.Add("p_tpin", tpin);
+
+            var result = await _dbContext.GetData<int>(
+                "sp_user_validate_tpin",
+                parameters
+            );
+
+            return result.FirstOrDefault() > 0;
+        }
+
     }
 }

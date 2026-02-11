@@ -202,12 +202,17 @@ namespace Payments_core.Controllers
     }
     public class PayReq
     {
-        public long UserId { get; set; }     // coming from frontend
-        public string BillerId { get; set; }
-        public string BillRequestId { get; set; }
-        public decimal Amount { get; set; }
-        public string Tpin { get; set; }
+        public long UserId { get; set; }
 
-        public string CustomerMobile { get; set; }
+        public string BillerId { get; set; } = string.Empty;
+
+        // ✅ Make optional
+        public string? BillRequestId { get; set; }
+
+        public decimal Amount { get; set; }
+
+        public string Tpin { get; set; } = string.Empty;
+
+        public string CustomerMobile { get; set; } = string.Empty;
     }
 }
