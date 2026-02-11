@@ -4,6 +4,8 @@ using Payments_core.Models.BBPS;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Text.Json;
+
 
 namespace Payments_core.Controllers
 {
@@ -69,7 +71,8 @@ namespace Payments_core.Controllers
                 var res = await _bbps.PayBill(
                  req.UserId,
                  req.BillerId,
-                 req.BillRequestId,
+                 req.InputParams,
+                 req.BillerResponse.GetRawText(),
                  req.Amount,
                  req.Tpin,
                  req.CustomerMobile
@@ -206,8 +209,12 @@ namespace Payments_core.Controllers
 
         public string BillerId { get; set; } = string.Empty;
 
-        // ✅ Make optional
-        public string? BillRequestId { get; set; }
+        // Required for Adhoc Pay
+        public Dictionary<string, string> InputParams { get; set; }
+            = new Dictionary<string, string>();
+
+        // Full billerResponse from Fetch API
+        public JsonElement BillerResponse { get; set; }
 
         public decimal Amount { get; set; }
 

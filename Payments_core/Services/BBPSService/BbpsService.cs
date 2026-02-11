@@ -168,13 +168,14 @@ namespace Payments_core.Services.BBPSService
         // PAY BILL
         // ---------------------------------------------------------
         public async Task<BbpsPayResponseDto> PayBill(
-            long userId,
-            string billerId,
-            string billRequestId,
-            decimal amount,
-            string tpin,
-            string customerMobile
-        )
+           long userId,
+           string billerId,
+           Dictionary<string, string> inputParams,
+           string billerResponseJson,
+           decimal amount,
+           string tpin,
+           string customerMobile
+       )
         {
             string requestId = string.Empty;
             string walletTxnId = string.Empty;
@@ -191,7 +192,7 @@ namespace Payments_core.Services.BBPSService
                 if (string.IsNullOrWhiteSpace(tpin))
                 {
                     Console.WriteLine("[BBPS][PAY] TPIN missing");
-                    throw new Exception("TPIN is required");
+                    throw new ApplicationException("TPIN is required");
                 }
 
                 var isValidTpin = await _userDataService.ValidateUserTpin(userId, tpin);
@@ -199,7 +200,7 @@ namespace Payments_core.Services.BBPSService
                 if (!isValidTpin)
                 {
                     Console.WriteLine($"[BBPS][PAY] Invalid TPIN for UserId={userId}");
-                    throw new Exception("Invalid TPIN");
+                    throw new ApplicationException("Invalid TPIN");
                 }
 
                 Console.WriteLine("[BBPS][PAY] TPIN validated successfully");
@@ -216,8 +217,11 @@ namespace Payments_core.Services.BBPSService
                 // -------------------------------------------------
                 // 2️⃣ Hold wallet amount
                 // -------------------------------------------------
-                walletTxnId =
-                    await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
+                walletTxnId = await _wallet.HoldAmount(
+                    userId,
+                    amount,
+                    "BBPS Bill Payment"
+                );
 
                 Console.WriteLine($"[BBPS][PAY] Wallet hold success | WalletTxnId={walletTxnId}");
 
@@ -230,17 +234,19 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"[BBPS][PAY] AmountInPaise={amountInPaise}");
 
                 // -------------------------------------------------
-                // 3️⃣ Build NPCI-safe XML
+                // 3️⃣ Build Pay XML
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Building Pay XML | RequestId={requestId}");
 
-                string xml = BillAvenueXmlBuilder.BuildPayBillXml(
-                    cfg["InstituteId"],
-                    requestId,
-                    billRequestId ?? string.Empty,
-                    amountInPaise,
-                    cfg["AgentId"],
-                    customerMobile
+                string xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
+                    instituteId: cfg["InstituteId"],
+                    requestId: requestId,
+                    agentId: cfg["AgentId"],
+                    billerId: billerId,
+                    inputParams: inputParams,
+                    billerResponseJson: billerResponseJson,
+                    amountInPaise: amountInPaise,
+                    customerMobile: customerMobile
                 );
 
                 // -------------------------------------------------
@@ -255,7 +261,7 @@ namespace Payments_core.Services.BBPSService
                     BuildCommonForm(cfg, requestId, encRequest);
 
                 // -------------------------------------------------
-                // 5️⃣ Call Pay API
+                // 5️⃣ Call BillAvenue Pay API
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Calling BillAvenue Pay API | RequestId={requestId}");
 
@@ -265,7 +271,7 @@ namespace Payments_core.Services.BBPSService
                 );
 
                 // -------------------------------------------------
-                // 6️⃣ Decrypt
+                // 6️⃣ Decrypt response
                 // -------------------------------------------------
                 Console.WriteLine($"[BBPS][PAY] Decrypting response | RequestId={requestId}");
 
@@ -273,7 +279,7 @@ namespace Payments_core.Services.BBPSService
                     BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
                 // -------------------------------------------------
-                // 7️⃣ Parse
+                // 7️⃣ Parse response
                 // -------------------------------------------------
                 var dto =
                     BillAvenueXmlParser.ParsePay(decryptedXml);
@@ -284,7 +290,7 @@ namespace Payments_core.Services.BBPSService
                 // 8️⃣ Save payment
                 // -------------------------------------------------
                 await _repo.SavePayment(
-                    billRequestId,
+                     requestId,
                     dto.TxnRefId,
                     userId,
                     amount,
@@ -299,19 +305,23 @@ namespace Payments_core.Services.BBPSService
                 // -------------------------------------------------
                 if (dto.Status == "SUCCESS")
                 {
+                    Console.WriteLine("[BBPS][PAY] Debit from hold");
+
                     await _wallet.DebitFromHold(
                         userId,
                         amount,
-                        dto.TxnRefId,
+                        walletTxnId, // ✅ internal wallet reference
                         "BBPS Bill Payment"
                     );
                 }
                 else
                 {
+                    Console.WriteLine("[BBPS][PAY] Release hold due to failure");
+
                     await _wallet.ReleaseHold(
                         userId,
                         amount,
-                        dto.TxnRefId ?? requestId,
+                        walletTxnId, // ✅ correct release reference
                         "BBPS Payment Failed"
                     );
                 }
@@ -323,15 +333,19 @@ namespace Payments_core.Services.BBPSService
             {
                 Console.WriteLine($"[BBPS][PAY][ERROR] RequestId={requestId} | {ex}");
 
+                // -------------------------------------------------
                 // Wallet safety rollback
+                // -------------------------------------------------
                 if (!string.IsNullOrEmpty(walletTxnId))
                 {
                     try
                     {
+                        Console.WriteLine("[BBPS][PAY] Releasing wallet hold due to exception");
+
                         await _wallet.ReleaseHold(
                             userId,
                             amount,
-                            requestId,
+                            walletTxnId,   // ✅ FIXED
                             "BBPS Payment Exception"
                         );
                     }

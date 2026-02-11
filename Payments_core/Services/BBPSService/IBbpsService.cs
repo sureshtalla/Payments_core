@@ -12,15 +12,25 @@ namespace Payments_core.Services.BBPSService
              CustomerInfo customerInfo
          );
 
+        //Task<BbpsPayResponseDto> PayBill(
+        //    long userId,
+        //    string billerId,
+        //    string billRequestId,
+        //    decimal amount,
+        //    string tpin,
+        //    string customerMobile
+        //);
+
+
         Task<BbpsPayResponseDto> PayBill(
             long userId,
             string billerId,
-            string billRequestId,
+            Dictionary<string, string> inputParams,
+            string billerResponseJson,
             decimal amount,
             string tpin,
             string customerMobile
         );
-
         Task<BbpsBillValidationResponseDto> ValidateBill(string billerId,Dictionary<string, string> inputParams);
 
         Task<BbpsStatusResponseDto> CheckStatus(
