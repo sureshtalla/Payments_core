@@ -40,7 +40,16 @@ namespace Payments_core.Services.BBPSService
             {
                 try
                 {
+                    var requestId = await _repo.GetRequestIdByTxnRef(txn.TxnRefId);
+
+                    if (string.IsNullOrEmpty(requestId))
+                    {
+                        Console.WriteLine($"RequestId not found for {txn.TxnRefId}");
+                        continue;
+                    }
+
                     var statusResponse = await _bbps.CheckStatus(
+                        requestId,
                         txn.TxnRefId,
                         txn.BillRequestId
                     );

@@ -53,19 +53,21 @@ namespace Payments_core.Services.BBPSService.Repository
         }
 
         public async Task SavePayment(
-            string billRequestId,
-            string txnRefId,
-            long userId,
-            decimal amount,
-            string status,
-            string responseCode,
-            string responseMessage,
-            string rawXml)
+          string requestId,
+          string billRequestId,
+          string txnRefId,
+          long userId,
+          decimal amount,
+          string status,
+          string responseCode,
+          string responseMessage,
+          string rawXml)
         {
             await _db.ExecuteStoredAsync(
                 "sp_bbps_payment_insert",
                 new
                 {
+                    p_request_id = requestId,
                     p_bill_request_id = billRequestId,
                     p_txn_ref_id = txnRefId,
                     p_user_id = userId,
@@ -102,6 +104,16 @@ namespace Payments_core.Services.BBPSService.Repository
                 (string)r.txn_ref_id,
                 (string)r.bill_request_id
             ));
+        }
+
+        public async Task<string?> GetRequestIdByTxnRef(string txnRefId)
+        {
+            var rows = await _db.GetData<string>(
+                "sp_bbps_get_request_id_by_txn_ref",
+                new { p_txn_ref_id = txnRefId }
+            );
+
+            return rows.FirstOrDefault();
         }
 
         //public Task UpsertBiller(BbpsBillerDto biller)
@@ -194,6 +206,25 @@ namespace Payments_core.Services.BBPSService.Repository
             );
         }
 
+        public async Task<BillerDto?> GetBillerById(string billerId)
+        {
+            var result = await _db.GetData<BillerDto>(
+                "sp_bbps_get_biller_by_id",
+                new { p_biller_id = billerId }
+            );
+
+            return result.FirstOrDefault();
+        }
+
+        public async Task<string?> GetBillRequestIdByTxnRef(string txnRefId)
+        {
+            var rows = await _db.GetData<string>(
+                "sp_bbps_get_bill_request_id_by_txn_ref",
+                new { p_txn_ref_id = txnRefId }
+            );
+
+            return rows.FirstOrDefault();
+        }
 
     }
 }

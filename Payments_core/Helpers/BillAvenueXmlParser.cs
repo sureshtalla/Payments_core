@@ -33,7 +33,6 @@ namespace Payments_core.Helpers
 
             var responseCode = root.Element("responseCode")?.Value;
 
-            // -------- HANDLE FAILURE (001, 002, etc.) --------
             if (responseCode != "000")
             {
                 var errorMessage =
@@ -45,26 +44,81 @@ namespace Payments_core.Helpers
                 return new BbpsFetchResponseDto
                 {
                     ResponseCode = responseCode,
-                    ResponseMessage = errorMessage ?? "No pending bill found",
-                    BillAmount = 0,
-                    DueDate = DateTime.MinValue
+                    ResponseMessage = errorMessage ?? "Fetch failed"
                 };
             }
 
-            // -------- SUCCESS (000) --------
-            var billerResponse = root.Element("billerResponse");
+            var billerResponseElement = root.Element("billerResponse");
+
+            // ==============================
+            // 🔥 Parse InputParams (DTO)
+            // ==============================
+            var inputParams = root
+                .Element("inputParams")?
+                .Elements("input")
+                .Select(x => new InputParamDto
+                {
+                    ParamName = x.Element("paramName")?.Value,
+                    ParamValue = x.Element("paramValue")?.Value
+                })
+                .ToList();
+
+            // ==============================
+            // 🔥 Parse AdditionalInfo (DTO)
+            // ==============================
+            var additionalInfo = root
+                .Element("additionalInfo")?
+                .Elements("info")
+                .Select(x => new AdditionalInfoDto
+                {
+                    InfoName = x.Element("infoName")?.Value,
+                    InfoValue = x.Element("infoValue")?.Value
+                })
+                .ToList();
+
+            // ==============================
+            // 🔥 Parse AmountOptions (DTO)
+            // ==============================
+            List<AmountOptionDto> amountOptions = null;
+
+            var amountOptionsElement =
+                billerResponseElement?.Element("amountOptions");
+
+            if (amountOptionsElement != null)
+            {
+                amountOptions = amountOptionsElement
+                    .Elements("option")
+                    .Select(o => new AmountOptionDto
+                    {
+                        AmountName = o.Element("amountName")?.Value,
+                        AmountValue = o.Element("amountValue")?.Value
+                    })
+                    .ToList();
+            }
+
+            // ==============================
+            // 🔥 Build BillerResponse DTO
+            // ==============================
+            var billerResponse = new BillerResponseDto
+            {
+                BillAmount = billerResponseElement?.Element("billAmount")?.Value,
+                BillDate = billerResponseElement?.Element("billDate")?.Value,
+                BillNumber = billerResponseElement?.Element("billNumber")?.Value,
+                BillPeriod = billerResponseElement?.Element("billPeriod")?.Value,
+                CustomerName = billerResponseElement?.Element("customerName")?.Value,
+                DueDate = billerResponseElement?.Element("dueDate")?.Value,
+                AmountOptions = amountOptions
+            };
 
             return new BbpsFetchResponseDto
             {
                 ResponseCode = "000",
                 ResponseMessage = "SUCCESS",
                 BillRequestId = root.Element("billRequestId")?.Value,
-                CustomerName = billerResponse?.Element("customerName")?.Value,
-                BillAmount = decimal.Parse(billerResponse?.Element("billAmount")?.Value ?? "0") / 100,
-                DueDate = DateTime.TryParse(
-                    billerResponse?.Element("dueDate")?.Value,
-                    out var d
-                ) ? d : DateTime.MinValue
+                RequestId = root.Element("requestId")?.Value,
+                InputParams = inputParams,
+                BillerResponse = billerResponse,
+                AdditionalInfo = additionalInfo
             };
         }
 
@@ -87,17 +141,47 @@ namespace Payments_core.Helpers
         // ---------------- STATUS ----------------
         public static BbpsStatusResponseDto ParseStatus(string xml)
         {
-            var doc = XDocument.Parse(xml);
-            XNamespace ns = doc.Root.GetDefaultNamespace();
-            var x = doc.Root;
+            var dto = new BbpsStatusResponseDto();
 
-            return new BbpsStatusResponseDto
+            if (string.IsNullOrWhiteSpace(xml))
+                return dto;
+
+            dto.RawXml = xml;
+
+            var doc = XDocument.Parse(xml);
+
+            var root = doc.Root;   // 🔥 safer than Element()
+
+            if (root == null)
+                return dto;
+
+            dto.ResponseCode = root.Element("responseCode")?.Value?.Trim();
+            dto.ResponseMessage = root.Element("responseReason")?.Value?.Trim();
+
+            var txnNode = root.Element("txnList");
+
+            if (txnNode != null)
             {
-                ResponseCode = x.Element(ns + "responseCode")?.Value,
-                ResponseMessage = x.Element(ns + "responseMessage")?.Value,
-                TxnRefId = x.Element(ns + "txnRefId")?.Value,
-                Status = x.Element(ns + "status")?.Value
-            };
+                dto.TxnRefId = txnNode.Element("txnReferenceId")?.Value?.Trim();
+                dto.Status = txnNode.Element("txnStatus")?.Value?.Trim()?.ToUpper();
+            }
+
+            Console.WriteLine($"[PARSED] Code={dto.ResponseCode}, TxnRef={dto.TxnRefId}, Status={dto.Status}");
+
+            if (string.IsNullOrWhiteSpace(dto.Status))
+            {
+                if (dto.ResponseCode == "000" &&
+                    !string.IsNullOrWhiteSpace(dto.TxnRefId))
+                {
+                    dto.Status = "SUCCESS";
+                }
+                else
+                {
+                    dto.Status = "PENDING";
+                }
+            }
+
+            return dto;
         }
 
         // ---------------- MDM BILLERS (FIXED) ----------------

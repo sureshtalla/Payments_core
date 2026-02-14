@@ -1,4 +1,6 @@
 ﻿using Payments_core.Models.BBPS;
+using System.Text.Json;
+using System.Collections.Generic;
 
 namespace Payments_core.Services.BBPSService
 {
@@ -12,31 +14,28 @@ namespace Payments_core.Services.BBPSService
              CustomerInfo customerInfo
          );
 
-        //Task<BbpsPayResponseDto> PayBill(
-        //    long userId,
-        //    string billerId,
-        //    string billRequestId,
-        //    decimal amount,
-        //    string tpin,
-        //    string customerMobile
-        //);
-
-
         Task<BbpsPayResponseDto> PayBill(
-            long userId,
-            string billerId,
-            Dictionary<string, string> inputParams,
-            string billerResponseJson,
-            decimal amount,
-            string tpin,
-            string customerMobile
-        );
+         long userId,
+         string billerId,
+         string? billRequestId,
+         Dictionary<string, string>? inputParams,
+         JsonElement? billerResponse,
+         JsonElement? additionalInfo,
+         decimal amount,
+         string amountTag,
+         string tpin,
+         string customerMobile,
+         string requestId
+     );
+
+        Task<BillerDto?> GetBillerById(string billerId);
+
         Task<BbpsBillValidationResponseDto> ValidateBill(string billerId,Dictionary<string, string> inputParams);
 
         Task<BbpsStatusResponseDto> CheckStatus(
-            string txnRefId,
-            string billRequestId
-        );
+        string requestId,
+        string txnRefId,
+        string billRequestId);
 
         Task SyncBillers();
 
@@ -44,6 +43,7 @@ namespace Payments_core.Services.BBPSService
         Task<IEnumerable<BbpsBillerListDto>> GetBillersByCategory(string category);
 
         Task<List<BbpsBillerInputParamDto>> GetBillerParams(string billerId);
+
 
     }
 }

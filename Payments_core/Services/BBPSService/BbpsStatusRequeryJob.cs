@@ -1,4 +1,6 @@
-﻿using Payments_core.Services.BBPSService.Repository;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Payments_core.Services.BBPSService.Repository;
 
 namespace Payments_core.Services.BBPSService
 {
@@ -16,15 +18,40 @@ namespace Payments_core.Services.BBPSService
             while (!stoppingToken.IsCancellationRequested)
             {
                 using var scope = _scopeFactory.CreateScope();
-                var repo = scope.ServiceProvider.GetRequiredService<IBbpsRepository>();
-                var svc = scope.ServiceProvider.GetRequiredService<IBbpsService>();
 
-                foreach (var txn in await repo.GetPendingTxns())
+                var repo = scope.ServiceProvider
+                                .GetRequiredService<IBbpsRepository>();
+
+                var svc = scope.ServiceProvider
+                               .GetRequiredService<IBbpsService>();
+
+                var pendingTxns = await repo.GetPendingTxns();
+
+                foreach (var txn in pendingTxns)
                 {
-                    await svc.CheckStatus(txn.TxnRefId, txn.BillRequestId);
+                    // 🔥 Get requestId from DB
+                    var requestId = await repo
+                        .GetRequestIdByTxnRef(txn.TxnRefId);
+
+                    if (string.IsNullOrEmpty(requestId))
+                    {
+                        Console.WriteLine(
+                            $"[REQUERY] RequestId not found for {txn.TxnRefId}"
+                        );
+                        continue;
+                    }
+
+                    await svc.CheckStatus(
+                        requestId,
+                        txn.TxnRefId,
+                        txn.BillRequestId
+                    );
                 }
 
-                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                await Task.Delay(
+                    TimeSpan.FromMinutes(5),
+                    stoppingToken
+                );
             }
         }
     }

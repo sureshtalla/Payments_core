@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json;
+using Payments_core.Services.BBPSService.Repository;
 
 
 namespace Payments_core.Controllers
@@ -14,10 +15,12 @@ namespace Payments_core.Controllers
     public class BbpsController : ControllerBase
     {
         private readonly IBbpsService _bbps;
-
-        public BbpsController(IBbpsService bbps)
+        private readonly IBbpsRepository _repo;
+        public BbpsController(IBbpsService bbps,
+        IBbpsRepository repo)
         {
             _bbps = bbps;
+            _repo = repo;
         }
 
         // -------------------------------------------------
@@ -69,25 +72,28 @@ namespace Payments_core.Controllers
             try
             {
                 var res = await _bbps.PayBill(
-                 req.UserId,
-                 req.BillerId,
-                 req.InputParams,
-                 req.BillerResponse.GetRawText(),
-                 req.Amount,
-                 req.Tpin,
-                 req.CustomerMobile
-             );
+                    req.UserId,
+                    req.BillerId,
+                    req.BillRequestId,
+                    req.InputParams,
+                    req.BillerResponse,
+                    req.AdditionalInfo,
+                    req.Amount,
+                    req.AmountTag,
+                    req.Tpin,
+                    req.CustomerMobile,
+                    req.RequestId
+                );
 
-                if (res.ResponseCode == "999")
-                    return Accepted(res);
+                Console.WriteLine($"[PAY][CTRL] ResponseCode={res.ResponseCode}, TxnRefId={res.TxnRefId}");
 
-                if (res.ResponseCode != "000")
-                    return BadRequest(res);
-
+                // Always return 200 for BBPS business responses
                 return Ok(res);
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[PAY][CTRL][ERROR] {ex}");
+
                 return StatusCode(500, new
                 {
                     success = false,
@@ -116,18 +122,29 @@ namespace Payments_core.Controllers
             return Ok(res);
         }
 
-
         // -------------------------------------------------
         // CHECK STATUS
         // -------------------------------------------------
-        [HttpGet("status/{txnRefId}/{billRequestId}")]
-        public async Task<IActionResult> Status(
-            string txnRefId,
-            string billRequestId)
+        [HttpGet("status/{txnRefId}")]
+        public async Task<IActionResult> Status(string txnRefId)
         {
             try
             {
-                var res = await _bbps.CheckStatus(txnRefId, billRequestId);
+                // Get requestId + billRequestId from DB
+                var requestId = await _repo.GetRequestIdByTxnRef(txnRefId);
+
+                if (string.IsNullOrEmpty(requestId))
+                    return NotFound("Transaction not found");
+
+                // billRequestId is optional now
+                var billRequestId = await _repo.GetBillRequestIdByTxnRef(txnRefId);
+
+                var res = await _bbps.CheckStatus(
+                    requestId,
+                    txnRefId,
+                    billRequestId
+                );
+
                 return Ok(res);
             }
             catch (Exception ex)
@@ -184,8 +201,37 @@ namespace Payments_core.Controllers
             return Ok(result);
         }
 
-    }
+        // -------------------------------------------------
+        // GET BILLER BY ID (WITH supportsAdhoc)
+        // -------------------------------------------------
+        [HttpGet("biller/{billerId}")]
+        public async Task<IActionResult> GetBillerById(string billerId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(billerId))
+                    return BadRequest("BillerId is required");
 
+                var biller = await _bbps.GetBillerById(billerId);
+
+                if (biller == null)
+                    return NotFound("Biller not found");
+
+                return Ok(biller);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+        
+
+    }
 
 
     // -------------------------------------------------
@@ -196,6 +242,8 @@ namespace Payments_core.Controllers
     //    string BillerId,
     //    Dictionary<string, string> Inputs
     //);
+
+ 
     public class FetchReq
     {
       public long UserId { get; set; }
@@ -206,20 +254,19 @@ namespace Payments_core.Controllers
     public class PayReq
     {
         public long UserId { get; set; }
-
         public string BillerId { get; set; } = string.Empty;
+        public Dictionary<string, string>? InputParams { get; set; }
+        public string? BillRequestId { get; set; }
+        public JsonElement? BillerResponse { get; set; }
 
-        // Required for Adhoc Pay
-        public Dictionary<string, string> InputParams { get; set; }
-            = new Dictionary<string, string>();
-
-        // Full billerResponse from Fetch API
-        public JsonElement BillerResponse { get; set; }
+        public JsonElement? AdditionalInfo { get; set; }
 
         public decimal Amount { get; set; }
-
         public string Tpin { get; set; } = string.Empty;
-
         public string CustomerMobile { get; set; } = string.Empty;
+
+        public string? RequestId { get; set; }
+
+        public string? AmountTag { get; set; }
     }
 }
