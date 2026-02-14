@@ -79,6 +79,19 @@ namespace Payments_core.Services.BBPSService.Repository
                 });
         }
 
+        public async Task UpdatePaymentStatus(
+        string txnRefId,
+        string status)
+        {
+            await _db.ExecuteStoredAsync(
+                "sp_bbps_payment_status_update",
+                new
+                {
+                    p_txn_ref_id = txnRefId,
+                    p_status = status
+                });
+        }
+
         public async Task UpdateStatus(
             string txnRefId,
             string billRequestId,

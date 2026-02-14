@@ -139,6 +139,51 @@ namespace Payments_core.Helpers
         }
 
         // ---------------- STATUS ----------------
+        //public static BbpsStatusResponseDto ParseStatus(string xml)
+        //{
+        //    var dto = new BbpsStatusResponseDto();
+
+        //    if (string.IsNullOrWhiteSpace(xml))
+        //        return dto;
+
+        //    dto.RawXml = xml;
+
+        //    var doc = XDocument.Parse(xml);
+
+        //    var root = doc.Root;   // 🔥 safer than Element()
+
+        //    if (root == null)
+        //        return dto;
+
+        //    dto.ResponseCode = root.Element("responseCode")?.Value?.Trim();
+        //    dto.ResponseMessage = root.Element("responseReason")?.Value?.Trim();
+
+        //    var txnNode = root.Element("txnList");
+
+        //    if (txnNode != null)
+        //    {
+        //        dto.TxnRefId = txnNode.Element("txnReferenceId")?.Value?.Trim();
+        //        dto.Status = txnNode.Element("txnStatus")?.Value?.Trim()?.ToUpper();
+        //    }
+
+        //    Console.WriteLine($"[PARSED] Code={dto.ResponseCode}, TxnRef={dto.TxnRefId}, Status={dto.Status}");
+
+        //    if (string.IsNullOrWhiteSpace(dto.Status))
+        //    {
+        //        if (dto.ResponseCode == "000" &&
+        //            !string.IsNullOrWhiteSpace(dto.TxnRefId))
+        //        {
+        //            dto.Status = "SUCCESS";
+        //        }
+        //        else
+        //        {
+        //            dto.Status = "PENDING";
+        //        }
+        //    }
+
+        //    return dto;
+        //}
+
         public static BbpsStatusResponseDto ParseStatus(string xml)
         {
             var dto = new BbpsStatusResponseDto();
@@ -150,8 +195,7 @@ namespace Payments_core.Helpers
 
             var doc = XDocument.Parse(xml);
 
-            var root = doc.Root;   // 🔥 safer than Element()
-
+            var root = doc.Element("transactionStatusResp");
             if (root == null)
                 return dto;
 
@@ -164,9 +208,14 @@ namespace Payments_core.Helpers
             {
                 dto.TxnRefId = txnNode.Element("txnReferenceId")?.Value?.Trim();
                 dto.Status = txnNode.Element("txnStatus")?.Value?.Trim()?.ToUpper();
-            }
 
-            Console.WriteLine($"[PARSED] Code={dto.ResponseCode}, TxnRef={dto.TxnRefId}, Status={dto.Status}");
+                // 🔥 NEW FIELDS
+                dto.CustomerName = txnNode.Element("respCustomerName")?.Value?.Trim();
+                dto.PaidAmount = txnNode.Element("amount")?.Value?.Trim();
+                dto.ApprovalRefNumber = txnNode.Element("approvalRefNumber")?.Value?.Trim();
+                dto.BillNumber = txnNode.Element("respBillNumber")?.Value?.Trim();
+                dto.DueDate = txnNode.Element("respDueDate")?.Value?.Trim();
+            }
 
             if (string.IsNullOrWhiteSpace(dto.Status))
             {
@@ -183,7 +232,6 @@ namespace Payments_core.Helpers
 
             return dto;
         }
-
         // ---------------- MDM BILLERS (FIXED) ----------------
         // File: Payments_core/Helpers/BillAvenueXmlParser.cs
         public static List<BbpsBillerMaster> ParseBillerInfo(string xml)

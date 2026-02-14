@@ -383,17 +383,17 @@ namespace Payments_core.Services.BBPSService
 
         var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
 
-              await _repo.SavePayment(
-              requestId,
-              billRequestId ?? requestId,  
-              dto.TxnRefId,
-              userId,
-              amount,
-              dto.Status,
-              dto.ResponseCode,
-              dto.ResponseMessage,
-              decryptedXml
-          );
+                await _repo.SavePayment(
+                requestId,
+                billRequestId ?? requestId,
+                dto.TxnRefId,
+                userId,
+                amount,
+                "PENDING",   // 🔥 FORCE PENDING
+                dto.ResponseCode,
+                dto.ResponseMessage,
+                decryptedXml
+            ); 
 
                 // --------------------------------------------------
                 // WALLET FINALIZATION
@@ -498,6 +498,12 @@ namespace Payments_core.Services.BBPSService
                 billRequestId,
                 dto.Status,
                 decryptedXml
+            );
+
+            // 🔥 ALSO UPDATE PAYMENT TABLE
+            await _repo.UpdatePaymentStatus(
+                txnRefId,
+                dto.Status
             );
 
             // ---------------------------------------------------------

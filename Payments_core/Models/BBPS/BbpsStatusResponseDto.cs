@@ -9,5 +9,11 @@
 
         // ✅ ADD THIS
         public string RawXml { get; set; }
+
+        public string CustomerName { get; set; }
+        public string PaidAmount { get; set; }
+        public string ApprovalRefNumber { get; set; }
+        public string BillNumber { get; set; }
+        public string DueDate { get; set; }
     }
 }

@@ -46,6 +46,11 @@ namespace Payments_core.Services.BBPSService.Repository
             string rawXml
         );
 
+        Task UpdatePaymentStatus(
+        string txnRefId,
+        string status
+        );
+
         Task<string?> GetRequestIdByTxnRef(string txnRefId);
 
         Task<string?> GetBillRequestIdByTxnRef(string txnRefId);
