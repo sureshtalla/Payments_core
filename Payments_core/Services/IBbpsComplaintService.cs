@@ -4,11 +4,10 @@
     {
         Task RegisterComplaint(
             string txnRefId,
-            string billerId,
             string complaintType,
             string description
         );
 
-        Task TrackComplaint(string complaintId);
+        Task<object> TrackComplaint(string complaintId);
     }
 }
