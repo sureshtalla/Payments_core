@@ -14,6 +14,7 @@ namespace Payments_core.Controllers
     [Route("api/bbps")]
     public class BbpsController : ControllerBase
     {
+
         private readonly IBbpsService _bbps;
         private readonly IBbpsRepository _repo;
         public BbpsController(IBbpsService bbps,
@@ -228,7 +229,7 @@ namespace Payments_core.Controllers
                 });
             }
         }
-
+       
         [HttpPost("search-transactions")]
         public async Task<IActionResult> SearchTransactions(
          [FromBody] TxnSearchRequest request)
@@ -239,6 +240,13 @@ namespace Payments_core.Controllers
                 request.FromDate,
                 request.ToDate);
 
+            return Ok(result);
+        }
+
+        [HttpGet("receipt/{txnRefId}")]
+        public async Task<IActionResult> GetReceipt(string txnRefId)
+        {
+            var result = await _bbps.GetReceipt(txnRefId);
             return Ok(result);
         }
 

@@ -759,5 +759,79 @@ namespace Payments_core.Services.BBPSService
                 transactions = data
             };
         }
+
+        public async Task<object> GetReceipt(string txnRefId)
+        {
+            var payment = await _repo.GetReceiptRaw(txnRefId);
+
+            if (payment == null)
+            {
+                return new { success = false, message = "Transaction not found." };
+            }
+
+            var dto = new BbpsReceiptDto
+            {
+                TxnReferenceId = payment.txn_ref_id,
+                BillerId = payment.biller_id,
+                BillerName = payment.biller_name,
+                BillAmount = payment.amount,
+                PaymentMode = payment.payment_mode,
+                TransactionStatus = payment.status,
+                TxnDate = payment.created_on
+            };
+
+            // ============================
+            // PARSE RAW XML (CASE SENSITIVE FIX)
+            // ============================
+
+            if (!string.IsNullOrWhiteSpace(payment.raw_pay_xml?.ToString()))
+            {
+                try
+                {
+                    string xmlString = payment.raw_pay_xml.ToString();
+
+                    var doc = System.Xml.Linq.XDocument.Parse(xmlString);
+                    var root = doc.Root;
+
+                    string GetValue(string tagName)
+                    {
+                        return root.Descendants()
+                                   .FirstOrDefault(e => e.Name.LocalName == tagName)
+                                   ?.Value;
+                    }
+
+                    dto.CustomerName = GetValue("RespCustomerName");
+                    dto.BillNumber = GetValue("RespBillNumber");
+                    dto.BillPeriod = GetValue("RespBillPeriod");
+                    dto.BillDate = GetValue("RespBillDate");
+                    dto.DueDate = GetValue("RespDueDate");
+                    dto.ApprovalNumber = GetValue("approvalRefNumber");
+
+                    var respAmount = GetValue("RespAmount");
+                    if (decimal.TryParse(respAmount, out decimal billAmount))
+                        dto.BillAmount = billAmount;
+
+                    var ccf = GetValue("CustConvFee");
+                    if (decimal.TryParse(ccf, out decimal ccfValue))
+                        dto.CCF = ccfValue;
+
+                    dto.TotalAmount = dto.BillAmount + dto.CCF;
+
+                    dto.MobileNumber = GetValue("customerMobile");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Receipt XML Parse Error: " + ex.Message);
+                }
+            }
+
+            return new
+            {
+                success = true,
+                data = dto
+            };
+        }
+
+
     }
 }

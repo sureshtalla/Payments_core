@@ -50,6 +50,7 @@ namespace Payments_core.Services.BBPSService
           DateTime? fromDate,
           DateTime? toDate
       );
+        Task<object> GetReceipt(string txnRefId);
 
     }
 }

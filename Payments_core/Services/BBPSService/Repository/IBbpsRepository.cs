@@ -95,5 +95,7 @@ namespace Payments_core.Services.BBPSService.Repository
             DateTime? fromDate,
             DateTime? toDate
         );
+
+        Task<dynamic?> GetReceiptRaw(string txnRefId);
     }
 }

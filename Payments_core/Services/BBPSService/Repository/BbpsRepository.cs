@@ -321,5 +321,15 @@ namespace Payments_core.Services.BBPSService.Repository
             return result.ToList();
         }
 
+        public async Task<dynamic?> GetReceiptRaw(string txnRefId)
+        {
+            var result = await _db.GetData<dynamic>(
+                "sp_bbps_get_receipt",
+                new { p_txn_ref_id = txnRefId }
+            );
+
+            return result.FirstOrDefault();
+        }
+
     }
 }
