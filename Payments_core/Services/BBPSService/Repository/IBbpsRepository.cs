@@ -27,17 +27,20 @@ namespace Payments_core.Services.BBPSService.Repository
 
         Task<string?> GetBillerCategory(string billerId);
 
-        Task SavePayment(
-          string requestId,
-          string billRequestId,
-          string txnRefId,
-          long userId,
-          decimal amount,
-          string status,
-          string responseCode,
-          string responseMessage,
-          string rawXml
-      );
+            Task SavePayment(
+            string requestId,
+            string billRequestId,
+            string txnRefId,
+            long userId,
+            decimal amount,
+            string status,
+            string responseCode,
+            string responseMessage,
+            string billerId,
+            string billerName,
+            string paymentMode,
+            string rawXml
+        );
 
         Task UpdateStatus(
             string txnRefId,
@@ -50,7 +53,9 @@ namespace Payments_core.Services.BBPSService.Repository
         string txnRefId,
         string status
         );
+        Task MarkSmsSent(string txnRefId);
 
+        Task<BbpsPendingTxnDto?> GetPaymentByTxnRef(string txnRefId);
         Task<string?> GetRequestIdByTxnRef(string txnRefId);
 
         Task<string?> GetBillRequestIdByTxnRef(string txnRefId);
@@ -80,6 +85,15 @@ namespace Payments_core.Services.BBPSService.Repository
             string txnRefId,
             string status,
             string rawXml
+        );
+
+        Task UpdateComplaintSmsStatus(string complaintId, string status);
+
+        Task<List<BbpsTxnReportDto>> SearchTransactions(
+            string txnRefId,
+            string mobile,
+            DateTime? fromDate,
+            DateTime? toDate
         );
     }
 }

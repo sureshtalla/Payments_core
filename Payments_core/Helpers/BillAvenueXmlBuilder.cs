@@ -292,58 +292,96 @@ namespace Payments_core.Helpers
         // =========================
         // REGULAR PAY (WITH billRequestId)
         // =========================
+        //   public static string BuildRegularPayXml(
+        //    string instituteId,
+        //    string requestId,
+        //    string agentId,
+        //    string billRequestId,
+        //    long amountInPaise,
+        //    string customerMobile,
+        //    AgentDeviceInfo deviceInfo
+        //)
+        //   {
+        //       var doc = new XDocument(
+        //           new XElement("billPaymentRequest",
+
+        //               new XElement("agentId", agentId),
+
+        //               new XElement("agentDeviceInfo",
+        //                   new XElement("ip", deviceInfo.Ip),
+        //                   new XElement("initChannel", deviceInfo.InitChannel),
+        //                   new XElement("mac", deviceInfo.Mac)
+        //               ),
+
+        //               new XElement("customerInfo",
+        //                   new XElement("customerMobile", customerMobile),
+        //                   new XElement("customerEmail", "")
+        //               ),
+
+        //               new XElement("billRequestId", billRequestId),
+
+        //               new XElement("paymentRefId", Guid.NewGuid().ToString("N")),
+
+        //               new XElement("amountInfo",
+        //                   new XElement("amount", amountInPaise),
+        //                   new XElement("currency", "356"),
+        //                   new XElement("custConvFee", "0")
+        //               ),
+
+        //               new XElement("paymentMethod",
+        //                   new XElement("paymentMode", "Wallet"),
+        //                   new XElement("quickPay", "N"),
+        //                   new XElement("splitPay", "N")
+        //               ),
+
+        //               new XElement("paymentInfo",
+        //                   new XElement("info",
+        //                       new XElement("infoName", "Payment Account Info"),
+        //                       new XElement("infoValue", "Wallet")
+        //                   )
+        //               )
+        //           )
+        //       );
+
+        //       return doc.ToString(SaveOptions.DisableFormatting);
+        //   }
+
         public static string BuildRegularPayXml(
-         string instituteId,
-         string requestId,
-         string agentId,
-         string billRequestId,
-         long amountInPaise,
-         string customerMobile,
-         AgentDeviceInfo deviceInfo
-     )
+    string agentId,
+    string billRequestId,
+    string paymentRefId,
+    long amount,
+    string customerMobile,
+    AgentDeviceInfo deviceInfo)
         {
-            var doc = new XDocument(
-                new XElement("billPaymentRequest",
+            return $@"<billPaymentRequest>
+            <agentId>{agentId}</agentId>
 
-                    new XElement("agentId", agentId),
+            <agentDeviceInfo>
+            <ip>{deviceInfo.Ip}</ip>
+            <initChannel>{deviceInfo.InitChannel}</initChannel>
+            <mac>{deviceInfo.Mac}</mac>
+            </agentDeviceInfo>
 
-                    new XElement("agentDeviceInfo",
-                        new XElement("ip", deviceInfo.Ip),
-                        new XElement("initChannel", deviceInfo.InitChannel),
-                        new XElement("mac", deviceInfo.Mac)
-                    ),
+            <customerInfo>
+            <customerMobile>{customerMobile}</customerMobile>
+            </customerInfo>
 
-                    new XElement("customerInfo",
-                        new XElement("customerMobile", customerMobile),
-                        new XElement("customerEmail", "")
-                    ),
+            <billRequestId>{billRequestId}</billRequestId>
+            <paymentRefId>{paymentRefId}</paymentRefId>
 
-                    new XElement("billRequestId", billRequestId),
+            <amountInfo>
+            <amount>{amount}</amount>
+            <currency>356</currency>
+            </amountInfo>
 
-                    new XElement("paymentRefId", Guid.NewGuid().ToString("N")),
+            <paymentMethod>
+            <paymentMode>Cash</paymentMode>
+            <quickPay>N</quickPay>
+            <splitPay>N</splitPay>
+            </paymentMethod>
 
-                    new XElement("amountInfo",
-                        new XElement("amount", amountInPaise),
-                        new XElement("currency", "356"),
-                        new XElement("custConvFee", "0")
-                    ),
-
-                    new XElement("paymentMethod",
-                        new XElement("paymentMode", "Wallet"),
-                        new XElement("quickPay", "N"),
-                        new XElement("splitPay", "N")
-                    ),
-
-                    new XElement("paymentInfo",
-                        new XElement("info",
-                            new XElement("infoName", "Payment Account Info"),
-                            new XElement("infoValue", "Wallet")
-                        )
-                    )
-                )
-            );
-
-            return doc.ToString(SaveOptions.DisableFormatting);
+            </billPaymentRequest>";
         }
 
         // =========================

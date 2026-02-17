@@ -52,5 +52,84 @@ namespace Payments_core.Services.OTPService
         {
             return await _dbContext.GetSingleData<MSGOTPConfig>("sp_GetMSGConfig", null);
         }
+
+        public async Task<bool> SendPaymentFlowSmsAsync(
+        string mobile,
+        string txnId,
+        decimal amount,
+        string billerName,
+        string billerId,
+        string mode,
+        string status,
+        string authKey,
+        string flowId,
+        string msgUrl)
+        {
+            try
+            {
+                using var client = new HttpClient();
+
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Add("authkey", authKey);
+
+                var payload = new
+                {
+                    flow_id = flowId,
+                    sender = "FINX",
+                    mobiles = mobile,
+                    VAR1 = amount.ToString("0.00"),
+                    VAR2 = billerName,
+                    VAR3 = billerId,
+                    VAR4 = txnId,
+                    VAR5 = DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"),
+                    VAR6 = mode
+                };
+
+                var response = await client.PostAsJsonAsync(msgUrl, payload);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("MSG91 Payment SMS Error: " + ex.Message);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendComplaintFlowSmsAsync(
+        string mobileNumber,
+        string txnId,
+        string complaintId,
+        string authKey,
+        string flowId,
+        string msgUrl)
+        {
+            try
+            {
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("authkey", authKey);
+
+                var payload = new
+                {
+                    flow_id = flowId,
+                    mobiles = mobileNumber,
+                    txnId = txnId,
+                    complaintId = complaintId
+                };
+
+                var content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(payload),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                var response = await client.PostAsync(msgUrl, content);
+
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

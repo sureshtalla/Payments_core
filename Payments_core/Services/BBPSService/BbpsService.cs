@@ -11,6 +11,7 @@ using Payments_core.Models;
 using Payments_core.Services.UserDataService;
 using System.Text.Json;
 using System.Xml.Linq;
+using Payments_core.Services.OTPService;
 
 namespace Payments_core.Services.BBPSService
 {
@@ -21,19 +22,22 @@ namespace Payments_core.Services.BBPSService
         private readonly IBbpsRepository _repo;
         private readonly IWalletService _wallet;
         private readonly IUserDataService _userDataService;
+        private readonly IMSG91OTPService _msgService;
 
         public BbpsService(
             IConfiguration cfg,
             IBillAvenueClient client,
             IBbpsRepository repo,
             IWalletService wallet,
-            IUserDataService userDataService)
+            IUserDataService userDataService,
+             IMSG91OTPService msgService)
         {
             _cfg = cfg;
             _client = client;
             _repo = repo;
             _wallet = wallet;
             _userDataService = userDataService;
+            _msgService = msgService;
         }
 
         // ---------------------------------------------------------
@@ -197,18 +201,18 @@ namespace Payments_core.Services.BBPSService
         // PAY BILL (NPCI READY – ADHOC + REGULAR SUPPORTED)
         // ---------------------------------------------------------
        public async Task<BbpsPayResponseDto> PayBill(
-    long userId,
-    string billerId,
-    string? billRequestId,
-    Dictionary<string, string>? inputParams,
-    JsonElement? billerResponse,
-     JsonElement? AdditionalInfo,
-    decimal amount,
-    string amountTag,
-    string tpin,
-    string customerMobile,
-    string requestId
-)
+        long userId,
+        string billerId,
+        string? billRequestId,
+        Dictionary<string, string>? inputParams,
+        JsonElement? billerResponse,
+         JsonElement? AdditionalInfo,
+        decimal amount,
+        string amountTag,
+        string tpin,
+        string customerMobile,
+        string requestId
+    )
 {
     string walletTxnId = string.Empty;
 
@@ -340,16 +344,15 @@ namespace Payments_core.Services.BBPSService
             if (string.IsNullOrWhiteSpace(billRequestId))
                 throw new ApplicationException("billRequestId is required for regular payment");
 
-            xml = BillAvenueXmlBuilder.BuildRegularPayXml(
-                cfg["InstituteId"],
-                requestId,
-                cfg["AgentId"],
-                billRequestId,
-                amountInPaise,
-                customerMobile,
-                deviceInfo
-            );
-        }
+                    xml = BillAvenueXmlBuilder.BuildRegularPayXml(
+                    cfg["AgentId"],
+                    billRequestId,
+                    requestId,
+                    amountInPaise,
+                    customerMobile,
+                    deviceInfo
+                    );
+                }
 
         Console.WriteLine("---------- PAY XML ----------");
         Console.WriteLine(xml);
@@ -383,17 +386,32 @@ namespace Payments_core.Services.BBPSService
 
         var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
 
+                //    await _repo.SavePayment(
+                //    requestId,
+                //    billRequestId ?? requestId,
+                //    dto.TxnRefId,
+                //    userId,
+                //    amount,
+                //    "PENDING",   // 🔥 FORCE PENDING
+                //    dto.ResponseCode,
+                //    dto.ResponseMessage,
+                //    decryptedXml
+                //); 
+
                 await _repo.SavePayment(
                 requestId,
-                billRequestId ?? requestId,
+                billRequestId ?? "",
                 dto.TxnRefId,
                 userId,
                 amount,
-                "PENDING",   // 🔥 FORCE PENDING
+                dto.Status,
                 dto.ResponseCode,
                 dto.ResponseMessage,
+                billerId,                                   // 🔥 ADD
+                biller.BillerName ?? "",                    // 🔥 ADD
+                "Cash",                                     // 🔥 ADD (or dynamic if needed)
                 decryptedXml
-            ); 
+                );
 
                 // --------------------------------------------------
                 // WALLET FINALIZATION
@@ -516,6 +534,66 @@ namespace Payments_core.Services.BBPSService
             else if (dto.Status == "FAILED")
             {
                 await _wallet.RefundIfPending(txnRefId);
+            }
+
+            // ===================================================
+            // ✅ SEND PAYMENT SMS (SUCCESS / FAILED)
+            // ===================================================
+
+            if (dto.Status == "SUCCESS" || dto.Status == "FAILED")
+            {
+                try
+                {
+                    var payment = await _repo.GetPaymentByTxnRef(txnRefId);
+
+                    if (payment != null && payment.SmsSent == 0)
+                    {
+                        Console.WriteLine("========== BBPS PAYMENT SMS START ==========");
+                        Console.WriteLine($"TxnRefId: {txnRefId}");
+                        Console.WriteLine($"Status: {dto.Status}");
+
+                        var user = await _userDataService.GetProfileAsync(payment.UserId);
+
+                        if (!string.IsNullOrWhiteSpace(user?.Mobile))
+                        {
+                            var msgConfig = await _msgService.GetMSGOTPConfigAsync();
+
+                            string mobile = user.Mobile.Trim();
+
+                            string paymentMode = string.IsNullOrWhiteSpace(payment.PaymentMode)
+                                ? "Cash"
+                                : payment.PaymentMode;
+
+                            Console.WriteLine($"Sending SMS to: {mobile}");
+
+                            bool smsResult = await _msgService.SendPaymentFlowSmsAsync(
+                                mobile,
+                                txnRefId,
+                                payment.Amount,
+                                payment.BillerName,
+                                payment.BillerId,
+                                paymentMode,
+                                dto.Status,
+                                msgConfig.MSGOtpAuthKey,
+                                msgConfig.MSGOtpTemplateId,
+                                msgConfig.MSGUrl
+                            );
+
+                            Console.WriteLine($"SMS Result: {smsResult}");
+
+                            if (smsResult)
+                            {
+                                await _repo.MarkSmsSent(txnRefId);
+                            }
+                        }
+
+                        Console.WriteLine("========== BBPS PAYMENT SMS END ==========");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Payment SMS Exception: " + ex.Message);
+                }
             }
 
             return dto;
@@ -659,6 +737,26 @@ namespace Payments_core.Services.BBPSService
                 { "ver", cfg["Version"] },
                 { "instituteId", cfg["InstituteId"] },
                 { "encRequest", encRequest }
+            };
+        }
+
+        public async Task<object> SearchTransactions(
+        string txnRefId,
+        string mobile,
+        DateTime? fromDate,
+        DateTime? toDate)
+        {
+            var data = await _repo.SearchTransactions(
+                txnRefId,
+                mobile,
+                fromDate,
+                toDate);
+
+            return new
+            {
+                success = true,
+                count = data.Count,
+                transactions = data
             };
         }
     }

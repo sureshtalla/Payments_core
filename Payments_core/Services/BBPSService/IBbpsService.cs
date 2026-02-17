@@ -44,6 +44,12 @@ namespace Payments_core.Services.BBPSService
 
         Task<List<BbpsBillerInputParamDto>> GetBillerParams(string billerId);
 
+        Task<object> SearchTransactions(
+          string txnRefId,
+          string mobile,
+          DateTime? fromDate,
+          DateTime? toDate
+      );
 
     }
 }

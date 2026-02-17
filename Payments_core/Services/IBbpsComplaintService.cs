@@ -2,11 +2,11 @@
 {
     public interface IBbpsComplaintService
     {
-        Task RegisterComplaint(
-            string txnRefId,
-            string complaintType,
-            string description
-        );
+        Task<object> RegisterComplaint(
+        string txnRefId,
+        string complaintType,
+        string description
+    );
 
         Task<object> TrackComplaint(string complaintId);
     }

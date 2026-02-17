@@ -229,22 +229,31 @@ namespace Payments_core.Controllers
             }
         }
 
-        
+        [HttpPost("search-transactions")]
+        public async Task<IActionResult> SearchTransactions(
+         [FromBody] TxnSearchRequest request)
+        {
+            var result = await _bbps.SearchTransactions(
+                request.TxnRefId,
+                request.Mobile,
+                request.FromDate,
+                request.ToDate);
+
+            return Ok(result);
+        }
 
     }
+        // -------------------------------------------------
+        // REQUEST DTOs
+        // -------------------------------------------------
+        //public record FetchReq(
+        //    long UserId,
+        //    string BillerId,
+        //    Dictionary<string, string> Inputs
+        //);
 
 
-    // -------------------------------------------------
-    // REQUEST DTOs
-    // -------------------------------------------------
-    //public record FetchReq(
-    //    long UserId,
-    //    string BillerId,
-    //    Dictionary<string, string> Inputs
-    //);
-
- 
-    public class FetchReq
+        public class FetchReq
     {
       public long UserId { get; set; }
       public string BillerId { get; set; }
