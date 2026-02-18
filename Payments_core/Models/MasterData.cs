@@ -97,5 +97,7 @@
         public required string MSGUrl { get; set; }
         public required string MSGOtpTemplateId { get; set; }
         public required string MSGOtpAuthKey { get; set; }
+        public required string MSGPAYMENTSUCCESS { get; set; }
+        public required string MSGCOMPLAINTREGISTER { get; set; }
     }
 }

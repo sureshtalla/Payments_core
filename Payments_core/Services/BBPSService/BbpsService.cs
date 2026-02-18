@@ -567,15 +567,14 @@ namespace Payments_core.Services.BBPSService
                             Console.WriteLine($"Sending SMS to: {mobile}");
 
                             bool smsResult = await _msgService.SendPaymentFlowSmsAsync(
-                                mobile,
-                                txnRefId,
+                                 mobile,
                                 payment.Amount,
                                 payment.BillerName,
                                 payment.BillerId,
+                                 txnRefId,
                                 paymentMode,
-                                dto.Status,
                                 msgConfig.MSGOtpAuthKey,
-                                msgConfig.MSGOtpTemplateId,
+                                msgConfig.MSGPAYMENTSUCCESS,
                                 msgConfig.MSGUrl
                             );
 

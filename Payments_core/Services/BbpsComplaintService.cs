@@ -37,9 +37,9 @@ namespace Payments_core.Services.BBPSService
         // REGISTER COMPLAINT
         // =====================================================
         public async Task<object> RegisterComplaint(
-     string txnRefId,
-     string complaintDisposition,
-     string description)
+         string txnRefId,
+         string complaintDisposition,
+         string description)
         {
             var cfg = _config.GetSection("BillAvenue");
             var requestId = BillAvenueRequestId.Generate();
@@ -104,6 +104,56 @@ namespace Payments_core.Services.BBPSService
                     p_request_xml = xml,
                     p_response_xml = decryptedXml
                 });
+
+            // ==========================================
+            // ✅ SEND COMPLAINT SMS AFTER SUCCESS
+            // ==========================================
+
+            if (responseCode == "000" && !string.IsNullOrEmpty(complaintId))
+            {
+                try
+                {
+                    var payment = await _repo.GetPaymentByTxnRef(txnRefId);
+
+                    if (payment != null)
+                    {
+                        var user = await _userDataService.GetProfileAsync(payment.UserId);
+
+                        if (!string.IsNullOrWhiteSpace(user?.Mobile))
+                        {
+                            var msgConfig = await _msgService.GetMSGOTPConfigAsync();
+
+                            Console.WriteLine("========== COMPLAINT SMS START ==========");
+                            Console.WriteLine($"TxnRefId: {txnRefId}");
+                            Console.WriteLine($"ComplaintId: {complaintId}");
+                            Console.WriteLine($"Mobile: {user.Mobile}");
+
+                            bool smsResult = await _msgService.SendComplaintFlowSmsAsync(
+                                user.Mobile.Trim(),
+                                txnRefId,
+                                complaintId,
+                                msgConfig.MSGOtpAuthKey,
+                                msgConfig.MSGCOMPLAINTREGISTER,
+                                msgConfig.MSGUrl
+                            );
+
+                            Console.WriteLine($"SMS Result: {smsResult}");
+
+                            // ✅ THIS IS WHERE YOUR METHOD IS USED
+                            await _repo.UpdateComplaintSmsStatus(
+                                complaintId,
+                                smsResult ? "SUCCESS" : "FAILED"
+                            );
+
+                            Console.WriteLine("========== COMPLAINT SMS END ==========");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Complaint SMS Error: " + ex.Message);
+                }
+            }
 
             // ===============================
             // 5️⃣ RETURN FULL RESPONSE
