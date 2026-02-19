@@ -23,6 +23,11 @@ namespace Payments_core.Services.MasterDataService
             return await dbContext.GetData<ProviderDto>("sp_master_get_providers",null);
         }
 
+        public async Task<IEnumerable<ProviderDto>> GetProvidersList()
+        {
+            return await dbContext.GetData<ProviderDto>("sp_master_get_providers_list", null);
+        }
+
         public async Task<IEnumerable<MdrPricing>> GetMdrPricingAsync()
         {
             return await dbContext.GetData<MdrPricing>("sp_master_get_mdr_pricing", null);

@@ -14,5 +14,6 @@
         public string PaymentMode { get; set; }
 
         public int SmsSent { get; set; }
+        public string RawFetchXml { get; set; }
     }
 }

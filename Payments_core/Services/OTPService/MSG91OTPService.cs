@@ -53,16 +53,19 @@ namespace Payments_core.Services.OTPService
             return await _dbContext.GetSingleData<MSGOTPConfig>("sp_GetMSGConfig", null);
         }
 
-        public async Task<bool> SendPaymentFlowSmsAsync(
-     string mobile,
-     decimal amount,
-     string billerName,
-     string consumerNo,
-     string txnId,
-     string mode,
-     string authKey,
-     string templateId,
-     string msgUrl)
+        // ============================================
+        // ✅ PAYMENT SUCCESS TEMPLATE SMS
+        // ============================================
+        public async Task<bool> SendPaymentTemplateSmsAsync(
+           string mobile,
+           decimal amount,
+           string billerName,
+           string consumerNo,
+           string txnId,
+           string mode,
+           string authKey,
+           string templateId,
+           string msgUrl)
         {
             try
             {
@@ -79,20 +82,17 @@ namespace Payments_core.Services.OTPService
                 new
                 {
                     mobiles = mobile,
-
-                    // 🔥 EXACT MATCH WITH TEMPLATE
                     var1 = amount.ToString("0.00"),
                     var2 = billerName,
                     var3 = consumerNo,
                     var4 = txnId,
-                    var5 = DateTime.Now.ToString("dd-MM-yyyy hh:mm tt"),
+                    var5 = DateTime.Now.ToString("dd-MM-yyyy HH:mm:ss"),
                     var6 = mode
                 }
             }
                 };
 
                 var json = JsonSerializer.Serialize(payload);
-
                 Console.WriteLine("MSG91 PAYMENT PAYLOAD:");
                 Console.WriteLine(json);
 
@@ -107,18 +107,18 @@ namespace Payments_core.Services.OTPService
             }
             catch (Exception ex)
             {
-                Console.WriteLine("MSG91 Payment Error: " + ex.Message);
+                Console.WriteLine("MSG91 Payment SMS Error: " + ex.Message);
                 return false;
             }
         }
 
-        // ================================
-        // ✅ COMPLAINT SMS (FLOW)
-        // ================================
-        public async Task<bool> SendComplaintFlowSmsAsync(
+        // ============================================
+        // ✅ COMPLAINT REGISTER TEMPLATE SMS
+        // ============================================
+        public async Task<bool> SendComplaintTemplateSmsAsync(
+         string mobile,
          string txnId,
          string complaintId,
-         string mobile,
          string authKey,
          string templateId,
          string msgUrl)
@@ -127,21 +127,17 @@ namespace Payments_core.Services.OTPService
             {
                 using var client = new HttpClient();
 
-                client.DefaultRequestHeaders.Clear();
                 client.DefaultRequestHeaders.Add("accept", "application/json");
                 client.DefaultRequestHeaders.Add("authkey", authKey);
 
                 var payload = new
                 {
-                    template_id = templateId,   // ✅ TEMPLATE ID (not flow_id)
-
+                    template_id = templateId,
                     recipients = new[]
                     {
                 new
                 {
                     mobiles = mobile,
-
-                    // 🔥 MUST MATCH ##var1## ##var2##
                     var1 = txnId,
                     var2 = complaintId
                 }
@@ -149,7 +145,6 @@ namespace Payments_core.Services.OTPService
                 };
 
                 var json = JsonSerializer.Serialize(payload);
-
                 Console.WriteLine("MSG91 COMPLAINT PAYLOAD:");
                 Console.WriteLine(json);
 
@@ -158,7 +153,7 @@ namespace Payments_core.Services.OTPService
                 var response = await client.PostAsync(msgUrl, content);
 
                 var result = await response.Content.ReadAsStringAsync();
-                Console.WriteLine("MSG91 COMPLAINT RESPONSE: " + result);
+                Console.WriteLine("MSG91 RESPONSE: " + result);
 
                 return response.IsSuccessStatusCode;
             }

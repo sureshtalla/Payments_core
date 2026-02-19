@@ -47,6 +47,21 @@ namespace Payments_core.Controllers
         }
 
         [HttpGet]
+        [Route("GetProvidersList")]
+        public async Task<IActionResult> GetProvidersList()
+        {
+            try
+            {
+                var data = await masterDataService.GetProvidersList();
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet]
         [Route("GetMdrPricingAsync")]
         public async Task<IActionResult> GetMdrPricingAsync()
         {

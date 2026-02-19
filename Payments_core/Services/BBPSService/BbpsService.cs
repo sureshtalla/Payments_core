@@ -549,8 +549,6 @@ namespace Payments_core.Services.BBPSService
                     if (payment != null && payment.SmsSent == 0)
                     {
                         Console.WriteLine("========== BBPS PAYMENT SMS START ==========");
-                        Console.WriteLine($"TxnRefId: {txnRefId}");
-                        Console.WriteLine($"Status: {dto.Status}");
 
                         var user = await _userDataService.GetProfileAsync(payment.UserId);
 
@@ -559,24 +557,38 @@ namespace Payments_core.Services.BBPSService
                             var msgConfig = await _msgService.GetMSGOTPConfigAsync();
 
                             string mobile = user.Mobile.Trim();
-
                             string paymentMode = string.IsNullOrWhiteSpace(payment.PaymentMode)
                                 ? "Cash"
                                 : payment.PaymentMode;
 
-                            Console.WriteLine($"Sending SMS to: {mobile}");
+                            // ===============================
+                            // 🔥 EXTRACT CONSUMER NO FROM XML
+                            // ===============================
+                            string consumerNo = "";
 
-                            bool smsResult = await _msgService.SendPaymentFlowSmsAsync(
-                                 mobile,
-                                payment.Amount,
-                                payment.BillerName,
-                                payment.BillerId,
-                                 txnRefId,
-                                paymentMode,
-                                msgConfig.MSGOtpAuthKey,
-                                msgConfig.MSGPAYMENTSUCCESS,
-                                msgConfig.MSGUrl
-                            );
+                            if (!string.IsNullOrWhiteSpace(payment.RawFetchXml))
+                            {
+                                var doc = XDocument.Parse(payment.RawFetchXml);
+
+                                consumerNo = doc.Descendants("input")
+                                    .Where(x => x.Element("paramName")?.Value == "Consumer No")
+                                    .Select(x => x.Element("paramValue")?.Value)
+                                    .FirstOrDefault() ?? "";
+                            }
+
+                            Console.WriteLine("ConsumerNo: " + consumerNo);
+
+                            bool smsResult = await _msgService.SendPaymentTemplateSmsAsync(
+                              mobile,
+                              payment.Amount,
+                              payment.BillerName,
+                              consumerNo,
+                              txnRefId,
+                              paymentMode,
+                              msgConfig.MSGOtpAuthKey,
+                              msgConfig.MSGPAYMENTSUCCESS,
+                              msgConfig.MSGUrl
+                          );
 
                             Console.WriteLine($"SMS Result: {smsResult}");
 

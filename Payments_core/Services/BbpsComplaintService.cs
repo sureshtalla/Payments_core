@@ -123,12 +123,7 @@ namespace Payments_core.Services.BBPSService
                         {
                             var msgConfig = await _msgService.GetMSGOTPConfigAsync();
 
-                            Console.WriteLine("========== COMPLAINT SMS START ==========");
-                            Console.WriteLine($"TxnRefId: {txnRefId}");
-                            Console.WriteLine($"ComplaintId: {complaintId}");
-                            Console.WriteLine($"Mobile: {user.Mobile}");
-
-                            bool smsResult = await _msgService.SendComplaintFlowSmsAsync(
+                            bool smsResult = await _msgService.SendComplaintTemplateSmsAsync(
                                 user.Mobile.Trim(),
                                 txnRefId,
                                 complaintId,
@@ -137,15 +132,10 @@ namespace Payments_core.Services.BBPSService
                                 msgConfig.MSGUrl
                             );
 
-                            Console.WriteLine($"SMS Result: {smsResult}");
-
-                            // ✅ THIS IS WHERE YOUR METHOD IS USED
                             await _repo.UpdateComplaintSmsStatus(
                                 complaintId,
                                 smsResult ? "SUCCESS" : "FAILED"
                             );
-
-                            Console.WriteLine("========== COMPLAINT SMS END ==========");
                         }
                     }
                 }
@@ -175,21 +165,13 @@ namespace Payments_core.Services.BBPSService
         public async Task<object> TrackComplaint(string complaintId)
         {
             var cfg = _config.GetSection("BillAvenue");
-
-            // 🔥 Generate 35-character requestId (MANDATORY for BBPS)
             var requestId = BillAvenueRequestId.Generate();
 
+            // ✅ EXACT XML AS PER DOC
             string xml =
-            $@"<complaintTrackingRequest>
-            <instituteId>{cfg["InstituteId"]}</instituteId>
-            <requestId>{requestId}</requestId>
+            $@"<complaintTrackingReq>
             <complaintId>{complaintId}</complaintId>
-            </complaintTrackingRequest>";
-
-            Console.WriteLine("===== COMPLAINT TRACK REQUEST =====");
-            Console.WriteLine($"TrackingRequestId: {requestId}");
-            Console.WriteLine($"ComplaintId: {complaintId}");
-            Console.WriteLine(xml);
+            </complaintTrackingReq>";
 
             string encRequest =
                 BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
@@ -209,36 +191,28 @@ namespace Payments_core.Services.BBPSService
             string decryptedXml =
                 BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-            Console.WriteLine("===== COMPLAINT TRACK RESPONSE =====");
+            Console.WriteLine("===== TRACK RESPONSE XML =====");
             Console.WriteLine(decryptedXml);
 
             var doc = XDocument.Parse(decryptedXml);
+            var root = doc.Element("complaintTrackingResp");
 
-            var responseCode = doc.Root?
-                .Element("responseCode")?.Value;
-
-            var responseReason = doc.Root?
-                .Element("responseReason")?.Value;
-
-            var status = doc.Root?
-                .Element("complaintStatus")?.Value;
-
-            var remarks = doc.Root?
-                .Element("complaintRemarks")?.Value;
-
-            var complaintAssigned = doc.Root?
-                .Element("complaintAssigned")?.Value;
+            var responseCode = root?.Element("responseCode")?.Value ?? "";
+            var responseReason = root?.Element("responseReason")?.Value ?? "";
+            var status = root?.Element("complaintStatus")?.Value ?? "";
+            var remarks = root?.Element("complaintRemarks")?.Value ?? "";
+            var assigned = root?.Element("complaintAssigned")?.Value ?? "";
 
             return new
             {
                 success = responseCode == "000",
-                complaintId = complaintId,
-                complaintAssigned,
+                complaintId,
+                complaintAssigned = assigned,
                 status,
                 remarks,
                 responseCode,
                 responseReason,
-                trackingRequestId = requestId,   
+                trackingRequestId = requestId,
                 rawXml = decryptedXml
             };
         }
