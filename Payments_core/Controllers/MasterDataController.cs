@@ -5,7 +5,7 @@ using Payments_core.Services.MasterDataService;
 
 namespace Payments_core.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class MasterDataController : Controller
@@ -168,6 +168,35 @@ namespace Payments_core.Controllers
             {
                 return StatusCode(500, ex.Message);
             }
+        }
+
+        [HttpPost("features/global")]
+        public async Task<IActionResult> UpdateGlobalFeatures(
+         [FromBody] RetailerFeatureItem model)
+        {
+            long adminId = 1; // replace later with JWT claim
+            var result = await masterDataService.UpdateGlobal(model, adminId);
+            return Ok(result);
+        }
+
+        [HttpGet("features/global")]
+        public async Task<IActionResult> GetGlobalFeatures()
+        {
+            return Ok(await masterDataService.GetGlobal());
+        }
+
+        [HttpGet("features/{userId}")]
+        public async Task<IActionResult> GetUserFeatures(long userId)
+        {
+            return Ok(await masterDataService.GetUser(userId));
+        }
+
+        [HttpPost("features/individual/bulk")]
+        public async Task<IActionResult> UpdateMultipleIndividuals(
+            [FromBody] BulkRetailerFeatureUpdateRequest request)
+        {
+            var result = await masterDataService.UpdateMultipleIndividuals(request);
+            return Ok(result);
         }
 
     }

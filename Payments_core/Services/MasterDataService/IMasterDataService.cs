@@ -20,5 +20,11 @@ namespace Payments_core.Services.MasterDataService
         Task<int> AddOrUpdateProvider(Provider request);
 
         Task<IEnumerable<BusineessRoles>> RolebasedUserWise(int RoleId,int UserId);
+
+        Task<RetailerFeatureItem> GetGlobal();
+        Task<RetailerFeatureItem> GetUser(long userId);
+        Task<int> UpdateGlobal(RetailerFeatureItem model, long adminId);
+        Task<int> UpdateIndividual(long userId, RetailerFeatureItem model, long adminId);
+        Task<int> UpdateMultipleIndividuals(BulkRetailerFeatureUpdateRequest request);
     }
 }

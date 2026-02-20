@@ -100,4 +100,18 @@
         public required string MSGPAYMENTSUCCESS { get; set; }
         public required string MSGCOMPLAINTREGISTER { get; set; }
     }
+    public class BulkRetailerFeatureUpdateRequest
+    {
+        public long AdminId { get; set; }
+        public List<RetailerFeatureItem> Retailers { get; set; }
+    }
+
+    public class RetailerFeatureItem
+    {
+        public long UserId { get; set; }
+        public bool Payin { get; set; }
+        public bool Payout { get; set; }
+        public bool Wallet { get; set; }
+        public bool CreditCard { get; set; }
+    }
 }

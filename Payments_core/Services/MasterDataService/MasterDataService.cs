@@ -1,6 +1,8 @@
 ﻿using Dapper;
+using Newtonsoft.Json;
 using Payments_core.Models;
 using Payments_core.Services.DataLayer;
+using System.Data;
 using System.Diagnostics.Metrics;
 
 namespace Payments_core.Services.MasterDataService
@@ -20,7 +22,7 @@ namespace Payments_core.Services.MasterDataService
 
         public async Task<IEnumerable<ProviderDto>> GetProvidersAsync()
         {
-            return await dbContext.GetData<ProviderDto>("sp_master_get_providers",null);
+            return await dbContext.GetData<ProviderDto>("sp_master_get_providers", null);
         }
 
         public async Task<IEnumerable<ProviderDto>> GetProvidersList()
@@ -72,12 +74,71 @@ namespace Payments_core.Services.MasterDataService
             return await dbContext.SetData("AddOrUpdateProvider", param);
         }
 
-        public async Task<IEnumerable<BusineessRoles>> RolebasedUserWise(int RoleId,int UserId)
+        public async Task<IEnumerable<BusineessRoles>> RolebasedUserWise(int RoleId, int UserId)
         {
             DynamicParameters parameters = new DynamicParameters();
             parameters.Add("p_role_id", RoleId);
             parameters.Add("p_user_id", UserId);
             return await dbContext.GetData<BusineessRoles>("sp_GetBusinessNamesByRole", parameters);
         }
+
+        public async Task<RetailerFeatureItem> GetGlobal()
+        {
+            return (await dbContext.GetData<RetailerFeatureItem>(
+                "sp_get_global_retailer_features",
+                null)).FirstOrDefault();
+        }
+
+        public async Task<RetailerFeatureItem> GetUser(long userId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+
+            return (await dbContext.GetData<RetailerFeatureItem>(
+                "sp_get_retailer_features",
+                param)).FirstOrDefault();
+        }
+
+        public async Task<int> UpdateGlobal(RetailerFeatureItem model, long adminId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_payin", model.Payin);
+            param.Add("p_payout", model.Payout);
+            param.Add("p_wallet", model.Wallet);
+            param.Add("p_credit_card", model.CreditCard);
+            param.Add("p_admin_id", adminId);
+
+            return await dbContext.SetData(
+                "sp_update_global_retailer_features",
+                param);
+        }
+
+        public async Task<int> UpdateMultipleIndividuals(BulkRetailerFeatureUpdateRequest request)
+        {
+            var json = JsonConvert.SerializeObject(request.Retailers);
+
+            var param = new DynamicParameters();
+            param.Add("p_json", json);
+            param.Add("p_admin_id", request.AdminId);
+
+            return await dbContext.SetData(
+                "sp_update_retailer_individual_bulk",
+                param);
+        }
+
+        public async Task<int> UpdateIndividual(long userId, RetailerFeatureItem model, long adminId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+            param.Add("p_payin", model.Payin);
+            param.Add("p_payout", model.Payout);
+            param.Add("p_wallet", model.Wallet);
+            param.Add("p_credit_card", model.CreditCard);
+            param.Add("p_admin_id", adminId);
+
+            return await dbContext.SetData(
+                "sp_update_retailer_individual_features",
+                param);
+        }
+      }
     }
-}
