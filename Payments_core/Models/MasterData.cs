@@ -113,5 +113,7 @@
         public bool Payout { get; set; }
         public bool Wallet { get; set; }
         public bool CreditCard { get; set; }
+
+        public string Fullname { get; set; }
     }
 }
