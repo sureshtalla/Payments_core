@@ -99,12 +99,12 @@ namespace Payments_core.Services.MasterDataService
                 param)).FirstOrDefault();
         }
 
-        public async Task<int> UpdateGlobal(RetailerFeatureItem model, long adminId)
+        public async Task<int> UpdateGlobal(RetailerFeatureItemSaveGlobal model, long adminId)
         {
             var param = new DynamicParameters();
             param.Add("p_payin", model.Payin);
             param.Add("p_payout", model.Payout);
-            param.Add("p_wallet", model.Wallet);
+       
             param.Add("p_credit_card", model.CreditCard);
             param.Add("p_admin_id", adminId);
 
@@ -119,22 +119,22 @@ namespace Payments_core.Services.MasterDataService
 
             var param = new DynamicParameters();
             param.Add("p_json", json);
-            param.Add("p_admin_id", request.AdminId);
+            param.Add("p_admin_id", 1);
 
             return await dbContext.SetData(
                 "sp_update_retailer_individual_bulk",
                 param);
         }
 
-        public async Task<int> UpdateIndividual(long userId, RetailerFeatureItem model, long adminId)
+        public async Task<int> UpdateIndividual( RetailerFeatureItemSave model, long adminId)
         {
             var param = new DynamicParameters();
-            param.Add("p_user_id", userId);
+            param.Add("p_user_id", model.UserId);
             param.Add("p_payin", model.Payin);
             param.Add("p_payout", model.Payout);
-            param.Add("p_wallet", model.Wallet);
+        
             param.Add("p_credit_card", model.CreditCard);
-            param.Add("p_admin_id", adminId);
+            param.Add("p_admin_id", 1);
 
             return await dbContext.SetData(
                 "sp_update_retailer_individual_features",

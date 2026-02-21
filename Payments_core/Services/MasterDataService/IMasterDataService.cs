@@ -23,8 +23,8 @@ namespace Payments_core.Services.MasterDataService
 
         Task<RetailerFeatureItem> GetGlobal();
         Task<RetailerFeatureItem> GetUser(long userId);
-        Task<int> UpdateGlobal(RetailerFeatureItem model, long adminId);
-        Task<int> UpdateIndividual(long userId, RetailerFeatureItem model, long adminId);
+        Task<int> UpdateGlobal(RetailerFeatureItemSaveGlobal model, long adminId);
+        Task<int> UpdateIndividual(RetailerFeatureItemSave model, long adminId);
         Task<int> UpdateMultipleIndividuals(BulkRetailerFeatureUpdateRequest request);
     }
 }

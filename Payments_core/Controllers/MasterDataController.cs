@@ -172,7 +172,7 @@ namespace Payments_core.Controllers
 
         [HttpPost("features/global")]
         public async Task<IActionResult> UpdateGlobalFeatures(
-         [FromBody] RetailerFeatureItem model)
+         [FromBody] RetailerFeatureItemSaveGlobal model)
         {
             long adminId = 1; // replace later with JWT claim
             var result = await masterDataService.UpdateGlobal(model, adminId);
@@ -196,6 +196,15 @@ namespace Payments_core.Controllers
             [FromBody] BulkRetailerFeatureUpdateRequest request)
         {
             var result = await masterDataService.UpdateMultipleIndividuals(request);
+            return Ok(result);
+        }
+
+        [HttpPost("features/individual/Individual")]
+        public async Task<IActionResult> UpdateIndividual(
+           [FromBody] RetailerFeatureItemSave request)
+        {
+            long adminId = 1;
+            var result = await masterDataService.UpdateIndividual(request, adminId);
             return Ok(result);
         }
 

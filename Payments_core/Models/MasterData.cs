@@ -103,7 +103,7 @@
     public class BulkRetailerFeatureUpdateRequest
     {
         public long AdminId { get; set; }
-        public List<RetailerFeatureItem> Retailers { get; set; }
+        public List<RetailerFeatureItemSave> Retailers { get; set; }
     }
 
     public class RetailerFeatureItem
@@ -111,9 +111,28 @@
         public long UserId { get; set; }
         public bool Payin { get; set; }
         public bool Payout { get; set; }
-        public bool Wallet { get; set; }
         public bool CreditCard { get; set; }
 
-        public string Fullname { get; set; }
+
+        public string? Fullname { get; set; }
+    }
+
+    public class RetailerFeatureItemSave
+    {
+        public long UserId { get; set; }
+        public bool Payin { get; set; }
+        public bool Payout { get; set; }
+    
+        public bool CreditCard { get; set; }
+      
+    }
+
+    public class RetailerFeatureItemSaveGlobal
+    {
+        public bool Payin { get; set; }
+        public bool Payout { get; set; }
+
+        public bool CreditCard { get; set; }
+
     }
 }
