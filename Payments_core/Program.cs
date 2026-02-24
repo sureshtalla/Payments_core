@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Payments_core.Services.BBPSService;
 using Payments_core.Services.BBPSService.Repository;
 using Payments_core.Services.DataLayer;
+using Payments_core.Services.FileStorage;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
 using Payments_core.Services.OTPService;
@@ -56,6 +57,7 @@ namespace Payments_core
             builder.Services.AddScoped<IWalletService, WalletService>();
             builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
             builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
+            builder.Services.AddScoped<ILocalFileService, LocalFileService>();
 
             // === CORS ===
             builder.Services.AddCors(options =>

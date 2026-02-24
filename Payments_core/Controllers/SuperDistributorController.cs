@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.SuperDistributorService;
+using Payments_core.Services.FileStorage;
 using System.Formats.Tar;
 
 namespace Payments_core.Controllers
@@ -14,8 +15,11 @@ namespace Payments_core.Controllers
     {
         private readonly ISuperDistributorService _service;
         private readonly GoogleDriveService _googleDriveService;
+        private readonly ILocalFileService _fileService;
 
-        public SuperDistributorController(ISuperDistributorService service, GoogleDriveService googleDriveService) { _service = service;
+        public SuperDistributorController(ISuperDistributorService service, GoogleDriveService googleDriveService, ILocalFileService fileService) 
+        {   _service = service; 
+            _fileService = fileService;
             _googleDriveService = googleDriveService ?? throw new ArgumentNullException(nameof(googleDriveService));
         }
         // 🔵 Full onboarding (User + Merchant + KYC + Docs)
@@ -33,71 +37,80 @@ namespace Payments_core.Controllers
         //}
 
 
+        //[HttpPost("full")]
+        //[Consumes("multipart/form-data")]
+        //public async Task<IActionResult> UpsertFull([FromForm] SuperDistributorRequest req)
+        //{
+
+        //    if (req == null)
+        //        throw new ArgumentNullException(nameof(req), "Request object is null");
+
+        //    if (_googleDriveService == null)
+        //        throw new ArgumentNullException(nameof(_googleDriveService), "_googleDriveService is null");
+
+        //    string panUrl = null;
+        //    string aadhaarUrl = null;
+
+
+        //    if (req.PanFile != null && req.PanFile.Length > 0)
+        //    {
+        //        panUrl = await _googleDriveService.UploadAsync(
+        //            req.PanFile,
+        //            req.UserId ?? 0,
+        //            "PAN"
+        //        );
+        //    }
+
+
+        //    if (req.AadhaarFile != null && req.AadhaarFile.Length > 0)
+        //    {
+        //        aadhaarUrl = await _googleDriveService.UploadAsync(
+        //            req.AadhaarFile,
+        //            req.UserId ?? 0,
+        //            "AADHAAR"
+        //        );
+        //    }
+
+        //    var (userId, merchantId) =
+        //        await _service.CreateFullOnboardingAsync(req, panUrl, aadhaarUrl);
+
+        //    return Ok(new SuperDistributorResponse
+        //    {
+        //        UserId = userId,
+        //        MerchantId = merchantId,
+        //        PanUrl = panUrl,
+        //        AadhaarUrl = aadhaarUrl,
+        //        Message = "Full onboarding created/updated successfully"
+        //    });
+        //}
+
         [HttpPost("full")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpsertFull([FromForm] SuperDistributorRequest req)
         {
-
-            //if (req == null)
-            //    throw new ArgumentNullException(nameof(req), "Request object is null");
-
-            //if (_googleDriveService == null)
-            //    throw new ArgumentNullException(nameof(_googleDriveService), "_googleDriveService is null");
-
-
-            //// Upload PAN
-            //if (req.PanFile != null && req.PanFile.Length > 0)
-            //     = await _googleDriveService.UploadAsync(req.PanFile, req.UserId ?? 0, "PAN");
-
-            //// Upload Aadhaar
-            //if (req.AadhaarFile != null && req.AadhaarFile.Length > 0)
-            //    req.AadhaarUrl = await _googleDriveService.UploadAsync(req.AadhaarFile, req.UserId ?? 0, "AADHAAR");
-
-
-
-            //var (userId, merchantId) = await _service.CreateFullOnboardingAsync(req);
-
-            //return Ok(new SuperDistributorResponse
-            //{
-            //    UserId = userId,
-            //    MerchantId = merchantId,
-            //    PanUrl = req.PanUrl,
-            //    AadhaarUrl = req.AadhaarUrl,
-            //    Message = req.UserId == null
-            //        ? "Full onboarding created/updated successfully"
-            //        : "Full onboarding created/updated successfully"
-            //});
-
             if (req == null)
-                throw new ArgumentNullException(nameof(req), "Request object is null");
-
-            if (_googleDriveService == null)
-                throw new ArgumentNullException(nameof(_googleDriveService), "_googleDriveService is null");
+                throw new ArgumentNullException(nameof(req));
 
             string panUrl = null;
             string aadhaarUrl = null;
 
-            // Upload PAN
-            if (req.PanFile != null && req.PanFile.Length > 0)
+            // If INSERT, first create minimal user to get userId
+            if (req.UserId == null || req.UserId == 0)
             {
-                panUrl = await _googleDriveService.UploadAsync(
-                    req.PanFile,
-                    req.UserId ?? 0,
-                    "PAN"
-                );
+                // call SP once without files to generate user
+                var tempResult = await _service.CreateFullOnboardingAsync(req, null, null);
+                req.UserId = tempResult.userId;
+                req.MerchantId = tempResult.merchantId;
             }
 
-            // Upload Aadhaar
-            if (req.AadhaarFile != null && req.AadhaarFile.Length > 0)
-            {
-                aadhaarUrl = await _googleDriveService.UploadAsync(
-                    req.AadhaarFile,
-                    req.UserId ?? 0,
-                    "AADHAAR"
-                );
-            }
+            // Save files locally
+            if (req.PanFile != null)
+                panUrl = await _fileService.SaveFileAsync(req.PanFile, req.UserId.Value, "PAN");
 
-            // Pass URLs separately to service
+            if (req.AadhaarFile != null)
+                aadhaarUrl = await _fileService.SaveFileAsync(req.AadhaarFile, req.UserId.Value, "AADHAAR");
+
+            // Final SP call with URLs
             var (userId, merchantId) =
                 await _service.CreateFullOnboardingAsync(req, panUrl, aadhaarUrl);
 
@@ -110,7 +123,6 @@ namespace Payments_core.Controllers
                 Message = "Full onboarding created/updated successfully"
             });
         }
-
 
 
         [HttpGet("GetCards/{roleId}/{userId}")]
