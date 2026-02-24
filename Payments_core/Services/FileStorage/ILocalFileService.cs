@@ -1,7 +1,9 @@
-﻿namespace Payments_core.Services.FileStorage
+﻿using Microsoft.AspNetCore.Http;
+
+namespace Payments_core.Services.FileStorage
 {
     public interface ILocalFileService
     {
-        Task<string> SaveFileAsync(IFormFile file, long userId, string docType);
+        Task<string> SaveKycFileAsync(IFormFile file, long userId, string docType);
     }
 }

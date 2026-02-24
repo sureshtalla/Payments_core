@@ -89,38 +89,34 @@ namespace Payments_core.Controllers
         public async Task<IActionResult> UpsertFull([FromForm] SuperDistributorRequest req)
         {
             if (req == null)
-                throw new ArgumentNullException(nameof(req));
+                return BadRequest("Invalid request");
 
             string panUrl = null;
             string aadhaarUrl = null;
 
-            // If INSERT, first create minimal user to get userId
+            // If new user → first create user to get userId
             if (req.UserId == null || req.UserId == 0)
             {
-                // call SP once without files to generate user
-                var tempResult = await _service.CreateFullOnboardingAsync(req, null, null);
-                req.UserId = tempResult.userId;
-                req.MerchantId = tempResult.merchantId;
+                var temp = await _service.CreateFullOnboardingAsync(req, null, null);
+                req.UserId = temp.userId;
+                req.MerchantId = temp.merchantId;
             }
 
-            // Save files locally
             if (req.PanFile != null)
-                panUrl = await _fileService.SaveFileAsync(req.PanFile, req.UserId.Value, "PAN");
+                panUrl = await _fileService.SaveKycFileAsync(req.PanFile, req.UserId.Value, "PAN");
 
             if (req.AadhaarFile != null)
-                aadhaarUrl = await _fileService.SaveFileAsync(req.AadhaarFile, req.UserId.Value, "AADHAAR");
+                aadhaarUrl = await _fileService.SaveKycFileAsync(req.AadhaarFile, req.UserId.Value, "AADHAAR");
 
-            // Final SP call with URLs
-            var (userId, merchantId) =
-                await _service.CreateFullOnboardingAsync(req, panUrl, aadhaarUrl);
+            var result = await _service.CreateFullOnboardingAsync(req, panUrl, aadhaarUrl);
 
-            return Ok(new SuperDistributorResponse
+            return Ok(new
             {
-                UserId = userId,
-                MerchantId = merchantId,
-                PanUrl = panUrl,
-                AadhaarUrl = aadhaarUrl,
-                Message = "Full onboarding created/updated successfully"
+                result.userId,
+                result.merchantId,
+                panUrl,
+                aadhaarUrl,
+                message = "Full onboarding successful"
             });
         }
 

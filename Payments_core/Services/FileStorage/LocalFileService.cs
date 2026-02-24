@@ -1,40 +1,53 @@
 ﻿using Microsoft.AspNetCore.Hosting;
-using Payments_core.Services.FileStorage;
 
-public class LocalFileService : ILocalFileService
+namespace Payments_core.Services.FileStorage
 {
-    private readonly IWebHostEnvironment _env;
-
-    public LocalFileService(IWebHostEnvironment env)
+    public class LocalFileService : ILocalFileService
     {
-        _env = env;
-    }
+        private readonly IWebHostEnvironment _env;
 
-    public async Task<string> SaveFileAsync(IFormFile file, long userId, string docType)
-    {
-        if (file == null || file.Length == 0)
-            return null;
-
-        string uploadsFolder = Path.Combine(
-            _env.WebRootPath,
-            "uploads",
-            "kyc",
-            userId.ToString()
-        );
-
-        if (!Directory.Exists(uploadsFolder))
-            Directory.CreateDirectory(uploadsFolder);
-
-        string extension = Path.GetExtension(file.FileName);
-        string fileName = $"{docType}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
-        string fullPath = Path.Combine(uploadsFolder, fileName);
-
-        using (var stream = new FileStream(fullPath, FileMode.Create))
+        public LocalFileService(IWebHostEnvironment env)
         {
-            await file.CopyToAsync(stream);
+            _env = env;
         }
 
-        // return relative URL to store in DB
-        return $"uploads/kyc/{userId}/{fileName}";
+        public async Task<string> SaveKycFileAsync(IFormFile file, long userId, string docType)
+        {
+            if (file == null || file.Length == 0)
+                return null;
+
+            // Validate extension
+            var allowed = new[] { ".pdf", ".jpg", ".jpeg", ".png" };
+            var extension = Path.GetExtension(file.FileName).ToLower();
+
+            if (!allowed.Contains(extension))
+                throw new Exception("Invalid file type");
+
+            // 10MB validation
+            if (file.Length > 10 * 1024 * 1024)
+                throw new Exception("File size exceeds 10MB");
+
+            // Create secure folder path
+            string basePath = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "SecureStorage",
+                "kyc",
+                userId.ToString()
+            );
+
+            if (!Directory.Exists(basePath))
+                Directory.CreateDirectory(basePath);
+
+            string fileName = $"{docType}_{DateTime.UtcNow:yyyyMMddHHmmss}{extension}";
+            string fullPath = Path.Combine(basePath, fileName);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Return relative path for DB
+            return $"kyc/{userId}/{fileName}";
+        }
     }
 }
