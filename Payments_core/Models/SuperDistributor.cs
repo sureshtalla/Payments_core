@@ -46,9 +46,11 @@ namespace Payments_core.Models
 
 
         // IFormFile for binding uploaded files
-        public IFormFile PanFile { get; set; }
-        public IFormFile AadhaarFile { get; set; }
+        //public IFormFile PanFile { get; set; }
+        //public IFormFile AadhaarFile { get; set; }
 
+        public IFormFile? PanFile { get; set; }
+        public IFormFile? AadhaarFile { get; set; }
 
         public int super_user_id { get; set; }
 
