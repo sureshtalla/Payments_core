@@ -357,10 +357,15 @@ namespace Payments_core.Services.BBPSService
         Console.WriteLine("---------- PAY XML ----------");
         Console.WriteLine(xml);
 
-        // --------------------------------------------------
-        // HOLD WALLET
-        // --------------------------------------------------
-        walletTxnId = await _wallet.HoldAmount(userId, amount, "BBPS Bill Payment");
+                // --------------------------------------------------
+                // HOLD WALLET
+                // --------------------------------------------------
+                walletTxnId = await _wallet.HoldAsync(
+                                                        userId,
+                                                        amount,
+                                                        "BBPS",
+                                                        requestId,
+                                                        "BBPS Bill Payment");
 
         string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
@@ -417,20 +422,38 @@ namespace Payments_core.Services.BBPSService
                 // WALLET FINALIZATION
                 // --------------------------------------------------
                 if (dto.Status == "SUCCESS")
-            await _wallet.DebitFromHold(userId, amount, walletTxnId, "BBPS Bill Payment");
-        else
-            await _wallet.ReleaseHold(userId, amount, walletTxnId, "BBPS Payment Failed");
+                    await _wallet.FinalizeAsync(
+                                             userId,
+                                             amount,
+                                             "BBPS",
+                                             requestId,
+                                             walletTxnId,
+                                             "BBPS Success");
+                else
+                    await _wallet.ReleaseAsync(
+                                            userId,
+                                            amount,
+                                            "BBPS",
+                                            requestId,
+                                            walletTxnId,
+                                            "BBPS Failed");
 
-        return dto;
+                return dto;
     }
-    catch
-    {
-        if (!string.IsNullOrEmpty(walletTxnId))
-            await _wallet.ReleaseHold(userId, amount, walletTxnId, "BBPS Payment Exception");
+            catch
+            {
+                if (!string.IsNullOrEmpty(walletTxnId))
+                    await _wallet.ReleaseAsync(
+                        userId,
+                        amount,
+                        "BBPS",
+                        requestId,
+                        walletTxnId,
+                        "BBPS Payment Exception");
 
-        throw;
-    }
-}
+                throw;
+            }
+        }
         // ---------------------------------------------------------
         // STATUS
         // ---------------------------------------------------------

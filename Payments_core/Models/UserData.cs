@@ -19,7 +19,8 @@
     public class VerifyOtpRequest
     {
         public long UserId { get; set; }
-        public string Otp { get; set; }
+        public string Otp { get; set; } = string.Empty;
+        public string SessionId { get; set; } = string.Empty;
     }
     public class UserProfileResponse
     {
@@ -35,7 +36,7 @@
 
         public required string tinno { get; set; }
         public required string Token { get; set; } // only for login
-        public required string password_hash { get; set; } // only for login
+       // public required string password_hash { get; set; } // only for login
 
         public int failed_attempts { get; set; }
         public bool is_blocked { get; set; }

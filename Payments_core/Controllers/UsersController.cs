@@ -7,13 +7,14 @@ using Payments_core.Services.OTPService;
 using Payments_core.Services.UserDataService;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Payments_core.Controllers
 {
 
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/users")]
     public class UsersController : Controller
@@ -23,6 +24,44 @@ namespace Payments_core.Controllers
         private readonly IOtpService otpDataService;
         private readonly IMSG91OTPService msgOtpService;
         IConfiguration config;
+        private string GenerateAccessToken(UserProfileResponse user)
+        {
+            var claims = new[]
+            {
+                new Claim("UserId", user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.role_name)
+            };
+
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(config["JwtSettings:Key"]));
+
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var duration = int.Parse(config["JwtSettings:DurationInMinutes"]);
+
+            var token = new JwtSecurityToken(
+                issuer: config["JwtSettings:Issuer"],
+                audience: config["JwtSettings:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(duration),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+
+        private string GenerateSecureRefreshToken()
+        {
+            var randomBytes = new byte[64];
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomBytes);
+
+            return Convert.ToBase64String(randomBytes)
+                .Replace("+", "-")
+                .Replace("/", "_")
+                .Replace("=", "");
+        }
 
         public UsersController(IUserDataService _userDataService, IOtpService _otpDataService, IMSG91OTPService _msgOtpService, IConfiguration _config)
         {
@@ -51,32 +90,44 @@ namespace Payments_core.Controllers
             if (user == null)
                 return Unauthorized("Invalid user");
 
-            // Check if blocked
             if (user.is_blocked && user.blocked_until > DateTime.UtcNow)
-            {
-                return Unauthorized($"User is blocked until {user.blocked_until}. Try after 24 hours.");
-            }
+                return Unauthorized($"User blocked until {user.blocked_until}");
 
-            bool isValid = userDataService.VerifyPassword(request.Password, user.password_hash);
+            bool isValid = userDataService.VerifyPassword(
+                request.Password,
+                user.password_hash);
 
             if (!isValid)
             {
                 user.failed_attempts++;
 
-                // Block for 24 hours
                 if (user.failed_attempts >= 3)
                 {
                     user.is_blocked = true;
                     user.blocked_until = DateTime.UtcNow.AddHours(24);
-
-                    await userDataService.UpdateLoginAttemptAsync(user);
-
-                    return Unauthorized("Account blocked for 24 hours due to multiple wrong attempts.");
                 }
 
-                await userDataService.UpdateLoginAttemptAsync(user);
+                await userDataService.UpdateLoginAttemptAsync(new UserProfileResponse
+                {
+                    Id = user.Id,
+                    failed_attempts = user.failed_attempts,
+                    is_blocked = user.is_blocked,
+                    blocked_until = user.blocked_until,
+                    full_name = "",
+                    Mobile = "",
+                    Email = "",
+                    role_id = 0,
+                    role_name = "",
+                    business_name = "",
+                    Status = "",
+                    tinno = "",
+                    PAN = "",
+                    Aadhar = "",
+                    Address = "",
+                    Token = ""
+                });
 
-                return Unauthorized($"Invalid Password. Attempts left: {3 - user.failed_attempts}");
+                return Unauthorized("Invalid credentials");
             }
 
             // Reset attempts
@@ -84,79 +135,189 @@ namespace Payments_core.Controllers
             user.is_blocked = false;
             user.blocked_until = null;
 
-            await userDataService.UpdateLoginAttemptAsync(user);
+            await userDataService.UpdateLoginAttemptAsync(new UserProfileResponse
+            {
+                Id = user.Id,
+                failed_attempts = 0,
+                is_blocked = false,
+                blocked_until = null,
+                full_name = "",
+                Mobile = "",
+                Email = "",
+                role_id = 0,
+                role_name = "",
+                business_name = "",
+                Status = "",
+                tinno = "",
+                PAN = "",
+                Aadhar = "",
+                Address = "",
+                Token = ""
+            });
+
+            // 🔥 Use real mobile from DB (already 91XXXXXXXXXX format)
+            if (string.IsNullOrWhiteSpace(user.mobile))
+                return StatusCode(500, "User mobile not configured");
 
             // Generate OTP
-            string otp = await otpDataService.GenerateOtpAsync(user.Id, user.Mobile);
-            var msgConfig = await msgOtpService.GetMSGOTPConfigAsync();
-            var result = await msgOtpService.MSG91SendOTPAsync(otp, user.Mobile, msgConfig.MSGOtpAuthKey, msgConfig.MSGOtpTemplateId, msgConfig.MSGUrl);
+            var (otp, sessionId) = await otpDataService.GenerateOtpAsync(
+                user.Id,
+                user.mobile
+            );
 
-            if (result)
+            var msgConfig = await msgOtpService.GetMSGOTPConfigAsync();
+
+            // Send OTP using REAL mobile (NOT request.UserName)
+            var result = await msgOtpService.MSG91SendOTPAsync(
+                otp,
+                user.mobile,   // ✅ FIXED
+                msgConfig.MSGOtpAuthKey,
+                msgConfig.MSGOtpTemplateId,
+                msgConfig.MSGUrl
+            );
+
+            if (!result)
+                return StatusCode(500, "OTP sending failed");
+
+            return Ok(new
             {
-                return Ok(new
-                {
-                    message = "Password verified. OTP sent.",
-                    user_id = user.Id
-                });
-            }
-            else
-            {
-                return Ok(new
-                {
-                    message = "The password was verified, but the OTP could not be sent. Please try again.",
-                    user_id = user.Id
-                });
-            }
+                message = "Password verified. OTP sent.",
+                user_id = user.Id,
+                session_id = sessionId
+            });
         }
 
         [HttpPost("verify-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
         {
-            if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Otp))
+            if (request == null ||
+                request.UserId <= 0 ||
+                string.IsNullOrWhiteSpace(request.Otp) ||
+                string.IsNullOrWhiteSpace(request.SessionId))
+            {
                 return BadRequest("Invalid request data");
+            }
 
-            bool isValid = await otpDataService.VerifyOtpAsync(request.UserId, request.Otp);
+            // 🔐 Verify OTP (Session Bound + BCrypt)
+            bool isValid = await otpDataService.VerifyOtpAsync(
+                request.UserId,
+                request.SessionId,
+                request.Otp);
+
             if (!isValid)
                 return Unauthorized("Invalid OTP");
 
+            // 🔍 Get user profile
             var user = await userDataService.GetProfileAsync(request.UserId);
             if (user == null)
                 return Unauthorized("User not found");
 
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, user.full_name ?? "User"),
-                new Claim(ClaimTypes.Role, user.role_name ?? "User"),
-                new Claim("UserId", request.UserId.ToString())
-            };
+            // 🔐 Generate Tokens
+            var accessToken = GenerateAccessToken(user);
+            var refreshToken = GenerateSecureRefreshToken();
 
-            var jwtKey = config["JwtSettings:Key"];
-            if (string.IsNullOrWhiteSpace(jwtKey))
-                return StatusCode(500, "JWT Key missing in configuration");
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: config["JwtSettings:Issuer"],
-                audience: config["JwtSettings:Audience"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(
-                    Convert.ToDouble(config["JwtSettings:DurationInMinutes"])
-                ),
-                signingCredentials: creds
+            // Save refresh token in DB
+            await userDataService.SaveUserSessionAsync(
+                user.Id,
+                refreshToken,
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                Request.Headers["User-Agent"].ToString(),
+                DateTime.UtcNow.AddDays(7)
             );
 
-            user.Token = new JwtSecurityTokenHandler().WriteToken(token);
+            // 🔐 Store refresh token in HttpOnly Cookie
+
+            Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            });
 
             return Ok(new
             {
                 message = "Login successful",
-                data = user
+                access_token = accessToken,
+                expires_in_minutes = 15,
+                user = new
+                {
+                    user.Id,
+                    user.full_name,
+                    user.role_id,
+                    user.role_name,
+                    user.parent_user_id,
+                    user.business_name,
+                    user.Status
+                }
             });
         }
 
+
+        [HttpPost("refresh-token")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RefreshToken()
+        {
+            var refreshToken = Request.Cookies["refreshToken"];
+
+            if (string.IsNullOrEmpty(refreshToken))
+                return Unauthorized("No refresh token");
+
+            // 🔥 ALWAYS DECODE
+            refreshToken = Uri.UnescapeDataString(refreshToken);
+
+            var (userId, isValid) =
+                await userDataService.ValidateRefreshTokenAsync(refreshToken);
+
+            if (!isValid)
+                return Unauthorized("Invalid refresh token");
+
+            var user = await userDataService.GetProfileAsync(userId);
+            if (user == null)
+                return Unauthorized();
+
+            var newAccessToken = GenerateAccessToken(user);
+            var newRefreshToken = GenerateSecureRefreshToken();
+
+            // 🔥 Revoke ALL old tokens of user
+            await userDataService.RevokeAllUserRefreshTokensAsync(user.Id);
+
+            await userDataService.SaveUserSessionAsync(
+                user.Id,
+                newRefreshToken,
+                HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                Request.Headers["User-Agent"].ToString(),
+                DateTime.UtcNow.AddDays(7)
+            );
+
+            Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,      // DEV
+                SameSite = SameSiteMode.None,
+                Expires = DateTime.UtcNow.AddDays(7)
+            });
+
+            return Ok(new
+            {
+                accessToken = newAccessToken,
+                expiresInMinutes = int.Parse(config["JwtSettings:DurationInMinutes"])
+            });
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            var refreshToken = Request.Cookies["refreshToken"];
+
+            if (!string.IsNullOrEmpty(refreshToken))
+                await userDataService.RevokeRefreshTokenAsync(refreshToken);
+
+            Response.Cookies.Delete("refreshToken");
+
+            return Ok(new { message = "Logged out successfully" });
+        }
 
         [HttpGet("profile/{id}")]
         public async Task<IActionResult> Profile(long id)
@@ -256,29 +417,36 @@ namespace Payments_core.Controllers
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {
             // Generate OTP
-            string otp = await otpDataService.GenerateOtpAsync(request.UserId, request.Mobile);
+            //string otp = await otpDataService.GenerateOtpAsync(request.UserId, request.Mobile);
+            var (otp, sessionId) = await otpDataService.GenerateOtpAsync(request.UserId, request.Mobile);
             var msgConfig = await msgOtpService.GetMSGOTPConfigAsync();
             var result = await msgOtpService.MSG91SendOTPAsync(otp, request.Mobile, msgConfig.MSGOtpAuthKey, msgConfig.MSGOtpTemplateId, msgConfig.MSGUrl);
 
 
             // 2️⃣ Hash OTPs
-            string otpHash = BCrypt.Net.BCrypt.HashPassword(otp);
+           // string otpHash = BCrypt.Net.BCrypt.HashPassword(otp);
 
             // 3️⃣ Expiry
-            DateTime expiry = DateTime.UtcNow.AddMinutes(5);
+           // DateTime expiry = DateTime.UtcNow.AddMinutes(5);
 
             // 4️⃣ Save hashed OTP
-            await userDataService.SaveHashedOtpAsync(request.Mobile, otpHash, expiry);
+           // await userDataService.SaveHashedOtpAsync(request.Mobile, otpHash, expiry);
 
             // 5️⃣ Send OTP via SMS provider
             // _smsService.Send(request.Mobile, otp);
 
             if (result)
             {
+                //return Ok(new
+                //{
+                //    message = "OTP sent successfully.",
+
+                //});
                 return Ok(new
                 {
-                    message = "OTP sent successfully.",
-                    
+                    message = "Password verified. OTP sent.",
+                    user_id = request.UserId,
+                    session_id = sessionId
                 });
             }
             else

@@ -8,7 +8,7 @@ using System.Formats.Tar;
 
 namespace Payments_core.Controllers
 {
-   // [Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/superdistributor")]
     public class SuperDistributorController : Controller

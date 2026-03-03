@@ -6,10 +6,12 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Payments_core.Services.BBPSService.Repository;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace Payments_core.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/bbps")]
     public class BbpsController : ControllerBase

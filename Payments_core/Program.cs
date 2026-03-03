@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Payments_core.Services.BBPSService;
 using Payments_core.Services.BBPSService.Repository;
@@ -50,7 +51,6 @@ namespace Payments_core
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
             // BillAvenue service (BBPS)
-            builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
             builder.Services.AddHttpClient<IBillAvenueClient, BillAvenueClient>();
             builder.Services.AddScoped<IBbpsService, BbpsService>();
             //builder.Services.AddHostedService<BbpsStatusRequeryJob>();
@@ -58,6 +58,11 @@ namespace Payments_core
             builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
             builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
             builder.Services.AddScoped<ILocalFileService, LocalFileService>();
+
+            builder.Services.Configure<FormOptions>(options =>
+            {
+                options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
+            });
 
             // === CORS ===
             builder.Services.AddCors(options =>
@@ -91,7 +96,10 @@ namespace Payments_core
                     ValidateIssuerSigningKey = true,
                     ValidIssuer = jwtSettings["Issuer"],
                     ValidAudience = jwtSettings["Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]))
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                     Encoding.UTF8.GetBytes(jwtSettings["Key"])
+                 ),
+                    ClockSkew = TimeSpan.Zero   // 🔥 IMPORTANT
                 };
             });
 

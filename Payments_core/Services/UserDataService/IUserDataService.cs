@@ -6,7 +6,8 @@ namespace Payments_core.Services.UserDataService
     public interface IUserDataService
     {
         Task<long> RegisterUserAsync(UserRegisterRequest request, string passwordHash);
-        Task<UserProfileResponse?> GetUserByMobileAsync(string UserName); // nullable
+        // Task<UserProfileResponse?> GetUserByMobileAsync(string UserName); // nullable
+        Task<UserLoginResult?> GetUserByMobileAsync(string UserName);
         Task<UserProfileResponse?> GetProfileAsync(long id);             // nullable
         Task<bool> UpdateProfileAsync(UserUpdateProfileRequest request);
 
@@ -26,5 +27,10 @@ namespace Payments_core.Services.UserDataService
         Task<(string? OtpHash, DateTime? Expiry, bool IsVerified)> GetHashedOtpAsync(string mobile);
         Task<bool> VerifyMobileAsync(string mobile);
         Task<bool> ValidateUserTpin(long userId, string tpin);
+
+        Task SaveUserSessionAsync(long userId, string refreshToken, string ip, string device, DateTime expiry);
+        Task<(long UserId, bool IsValid)> ValidateRefreshTokenAsync(string refreshToken);
+        Task RevokeRefreshTokenAsync(string refreshToken);
+        Task RevokeAllUserRefreshTokensAsync(long userId);
     }
 }

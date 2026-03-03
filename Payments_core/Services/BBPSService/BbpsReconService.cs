@@ -59,9 +59,11 @@ namespace Payments_core.Services.BBPSService
 
                     if (finalStatus == "SUCCESS")
                     {
-                        await _wallet.FinalizeDebit(
+                        await _wallet.FinalizeAsync(
                             txn.UserId,
                             txn.Amount,
+                            "BBPS",
+                            requestId,
                             txn.TxnRefId,
                             "BBPS Recon Success"
                         );

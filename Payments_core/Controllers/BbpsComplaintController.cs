@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Payments_core.Services.BBPSService;
 
 namespace Payments_core.Controllers
 {
 
+    [Authorize]
     [ApiController]
     [Route("api/bbps/complaint")]
     public class BbpsComplaintController : ControllerBase

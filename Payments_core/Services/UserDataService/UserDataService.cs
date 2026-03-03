@@ -37,12 +37,12 @@ namespace Payments_core.Services.UserDataService
             return param.Get<long>("p_new_id");
         }
 
-        public async Task<UserProfileResponse?> GetUserByMobileAsync(string UserName)
+        public async Task<UserLoginResult?> GetUserByMobileAsync(string UserName)
         {
             var param = new DynamicParameters();
             param.Add("p_username", UserName);
 
-            var data = await _dbContext.GetData<UserProfileResponse>("sp_user_login", param);
+            var data = await _dbContext.GetData<UserLoginResult>("sp_user_login", param);
             return data.FirstOrDefault();
         }
 
@@ -215,6 +215,48 @@ namespace Payments_core.Services.UserDataService
             );
 
             return result.FirstOrDefault() > 0;
+        }
+
+        public async Task SaveUserSessionAsync(long userId, string refreshToken, string ip, string device, DateTime expiry)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+            param.Add("p_refresh_token", refreshToken);
+            param.Add("p_ip", ip);
+            param.Add("p_device", device);
+            param.Add("p_expiry", expiry);
+
+            await _dbContext.SetData("sp_save_user_session", param);
+        }
+
+        public async Task<(long UserId, bool IsValid)> ValidateRefreshTokenAsync(string refreshToken)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_refresh_token", refreshToken);
+
+            var result = await _dbContext.GetData<dynamic>("sp_validate_refresh_token", param);
+            var row = result.FirstOrDefault();
+
+            if (row == null)
+                return (0, false);
+
+            return (row.user_id, row.is_valid == 1);
+        }
+
+        public async Task RevokeRefreshTokenAsync(string refreshToken)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_refresh_token", refreshToken);
+
+            await _dbContext.SetData("sp_revoke_refresh_token", param);
+        }
+
+        public async Task RevokeAllUserRefreshTokensAsync(long userId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+
+            await _dbContext.SetData("sp_revoke_all_user_tokens", param);
         }
 
     }

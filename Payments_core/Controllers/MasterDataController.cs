@@ -5,7 +5,7 @@ using Payments_core.Services.MasterDataService;
 
 namespace Payments_core.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class MasterDataController : Controller
