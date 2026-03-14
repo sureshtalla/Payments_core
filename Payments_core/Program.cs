@@ -20,6 +20,7 @@ using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using Payments_core.Services.WalletService;
 using Payments_core.Models.Settings;
+using Payments_core.Services.KycVerificationService;
 
 namespace Payments_core
 {
@@ -38,7 +39,7 @@ namespace Payments_core
 
             // Dapper context should be scoped (per request), not singleton
             builder.Services.AddScoped<IDapperContext, DapperContext>();
-            builder.Services.AddSingleton<GoogleDriveService>();   // single instance for Drive API
+       
 
             // Master data service
             builder.Services.AddScoped<IMasterDataService, MasterDataService>();
@@ -83,6 +84,10 @@ namespace Payments_core
 
             builder.Services.AddScoped<IPaymentGateway, EasebuzzGateway>();
             builder.Services.AddScoped<IPaymentGateway, CashfreeGateway>();
+
+            builder.Services.AddHttpClient<CashfreeVerificationClient>();
+
+            builder.Services.AddScoped<IKycVerificationService, KycVerificationService>();
 
             builder.Services.AddScoped<PaymentRouterService>();
 

@@ -14,13 +14,11 @@ namespace Payments_core.Controllers
     public class SuperDistributorController : Controller
     {
         private readonly ISuperDistributorService _service;
-        private readonly GoogleDriveService _googleDriveService;
         private readonly ILocalFileService _fileService;
 
-        public SuperDistributorController(ISuperDistributorService service, GoogleDriveService googleDriveService, ILocalFileService fileService) 
+        public SuperDistributorController(ISuperDistributorService service, ILocalFileService fileService) 
         {   _service = service; 
             _fileService = fileService;
-            _googleDriveService = googleDriveService ?? throw new ArgumentNullException(nameof(googleDriveService));
         }
         // 🔵 Full onboarding (User + Merchant + KYC + Docs)
         //[HttpPost("full")]
