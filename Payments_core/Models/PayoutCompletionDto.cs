@@ -8,5 +8,6 @@
         public decimal Amount { get; set; }
         public decimal FeeAmount { get; set; }
         public bool Success { get; set; }
+
     }
 }

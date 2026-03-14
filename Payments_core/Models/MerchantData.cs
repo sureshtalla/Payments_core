@@ -63,10 +63,11 @@
         public decimal Amount { get; set; }
         public decimal FeeAmount { get; set; }
         public required string TPin { get; set; }
-        public required PayoutMode Mode { get; set; }
+       // public required PayoutMode Mode { get; set; }
         public string? TransactionId { get; set; }
         public PayoutStatus Status { get; set; }
         public string? Reason { get; set; }
+        public PayoutMode Mode { get; set; }
     }
 
     public class PayoutRequestInit

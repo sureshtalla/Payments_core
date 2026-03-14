@@ -2,16 +2,38 @@
 using Payments_core.Services.DataLayer;
 using System;
 using System.Threading.Tasks;
+using Payments_core.Services.Security;
+using Payments_core.Services.FailureQueue;
+using Payments_core.Services.Payments;
+using Payments_core.Services.Monitoring;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Payments_core.Services.WalletService
 {
     public class WalletService : IWalletService
     {
         private readonly IDapperContext _db;
+        private readonly FraudService _fraud;
+        private readonly FailureService _failure;
+        private readonly PgRetryService _retry;
+        private readonly MetricsService _metrics;
+        private readonly PaymentRouterService _router;
 
-        public WalletService(IDapperContext db)
+        public WalletService(
+        IDapperContext db,
+        FraudService fraud,
+        PaymentRouterService router,
+        FailureService failure,
+        PgRetryService retry,
+        MetricsService metrics)
         {
             _db = db;
+            _fraud = fraud;
+            _router = router;
+            _failure = failure;
+            _retry = retry;
+            _metrics = metrics;
         }
 
         // ===========================
@@ -33,7 +55,7 @@ namespace Payments_core.Services.WalletService
         // PAYIN COMMISSION (CRITICAL - MUST BE CALLED ONLY ONCE AFTER SUCCESS)
         // ===========================
         public Task<int> WalletLoadCommissionPercent(WalletLoadInit req)
-            => _db.ExecuteStoredAsync("sp_Create_Wallet_Load_Commission", new
+            => _db.ExecuteStoredAsync("sp_Create_Wallet_Load_Commission_v1", new
             {
                 p_UserId = req.UserId,
                 p_TransactionId = req.TransactionId,
@@ -213,6 +235,313 @@ namespace Payments_core.Services.WalletService
             };
 
             return await _db.ExecuteStoredAsync("sp_Wallet_Transfer", param);
+        }
+
+        // =======================================
+        // GET ACTIVE PROVIDERS
+        // =======================================
+        public async Task<IEnumerable<dynamic>> GetProviders(string type)
+        {
+            return await _db.GetData<dynamic>(
+                "sp_get_active_providers",
+                new { p_type = type });
+        }
+
+        // ======================================
+        // CREATE PAYIN TRANSACTION
+        // ======================================
+        public async Task<string> CreatePayinTransaction(
+            long userId,
+            long merchantId,
+            decimal amount,
+            string callbackUrl)
+        {
+            var safe = await _fraud.CheckFraud(userId, amount);
+
+            if (!safe)
+                throw new Exception("Fraud rule triggered");
+
+            string requestId = Guid.NewGuid().ToString("N");
+
+            var gateways = await _router.GetGateways("PAYIN");
+
+            if (!gateways.Any())
+                throw new Exception("No PAYIN gateways configured");
+
+            // ===========================
+            // DUPLICATE ORDER PROTECTION
+            // ===========================
+            var exists = await _db.GetData<dynamic>(
+                "sp_pg_duplicate_check",
+                new { p_user_id = userId, p_amount = amount });
+
+            if (exists.Any())
+                throw new Exception("Duplicate payment attempt");
+
+            foreach (var (gateway, provider) in gateways)
+            {
+                var rule = await _retry.GetRetryRule(provider.id);
+
+                int retries = rule?.max_retries ?? 1;
+                int delay = rule?.retry_delay_seconds ?? 2;
+
+                for (int i = 0; i < retries; i++)
+                {
+                    try
+                    {
+                        string attemptId = requestId + "_" + provider.id;
+
+                        await _db.ExecuteStoredAsync(
+                            "sp_pg_transaction_init",
+                            new
+                            {
+                                p_request_id = attemptId,
+                                p_provider_id = provider.id,
+                                p_category = "PAYIN",
+                                p_user_id = userId,
+                                p_merchant_id = merchantId,
+                                p_amount = amount,
+                                p_callback_url = callbackUrl
+                            });
+
+                        // create PG order
+                        await gateway.CreatePayin(
+                            requestId,
+                            amount,
+                            callbackUrl,
+                            provider);
+
+                        return requestId;
+                    }
+                    catch
+                    {
+                        await Task.Delay(delay * 1000);
+                    }
+                }
+            }
+
+            throw new Exception("All payment gateways failed");
+        }
+        public async Task<bool> IsWalletCredited(string requestId)
+        {
+            var rows = await _db.GetData<dynamic>(
+                "sp_wallet_is_credited",
+                new { p_txn_id = requestId });
+
+            return rows.Any();
+        }
+
+        public async Task<IEnumerable<dynamic>> GetPendingReconTransactions()
+        {
+            return await _db.GetData<dynamic>(
+                "sp_reconcile_pending_payins",
+                null);
+        }
+
+        // =======================================
+        // WALLET BALANCE
+        // =======================================
+        public async Task<dynamic?> GetWalletBalance(long userId)
+        {
+            var rows = await _db.GetData<dynamic>(
+                "sp_wallet_get_balance",
+                new { p_user_id = userId });
+
+            return rows.FirstOrDefault();
+        }
+
+        // =======================================
+        // GET PAYMENT STATUS
+        // =======================================
+        public async Task<dynamic?> GetPaymentStatus(string requestId)
+        {
+            var rows = await _db.GetData<dynamic>(
+                "sp_pg_get_status",
+                new { p_request_id = requestId });
+
+            return rows.FirstOrDefault();
+        }
+
+        // =======================================
+        // PAYOUT ROUTING
+        // =======================================
+        public async Task<string> CreatePayoutOrder(
+        long userId,
+        int beneficiaryId,
+        decimal amount,
+        decimal fee,
+        string mode,
+        string tpin)
+        {
+            var gateways = await _router.GetGateways("PAYOUT");
+
+            if (!gateways.Any())
+                throw new Exception("No PAYOUT gateways configured");
+
+            string txnId = Guid.NewGuid().ToString("N").ToUpper();
+            decimal total = amount + fee;
+
+            await CheckDailyPayoutLimit(userId, total);
+
+            var holdTxn = await HoldAsync(
+                userId,
+                total,
+                "PAYOUT",
+                txnId,
+                "Payout Hold");
+
+            foreach (var (gateway, provider) in gateways)
+            {
+                try
+                {
+                    await gateway.CreatePayout(
+                        txnId,
+                        amount,
+                        "",
+                        "",
+                        provider);
+
+                    return txnId;
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+
+            await ReleaseAsync(
+                userId,
+                total,
+                "PAYOUT",
+                txnId,
+                holdTxn,
+                "Provider failure");
+
+            throw new Exception("All payout providers failed");
+        }
+
+        // =======================================
+        // WEBHOOK LOG INSERT
+        // =======================================
+
+        public async Task<long> InsertWebhookLog(
+        int providerId,
+        string eventType,
+        string headers,
+        string payload)
+        {
+        var hash = Convert.ToHexString(
+            SHA256.HashData(
+                Encoding.UTF8.GetBytes(payload)));
+
+        var rows = await _db.GetData<dynamic>(
+            "sp_webhook_log_insert",
+            new
+            {
+                p_provider_id = providerId,
+                p_event_type = eventType,
+                p_headers = headers,
+                p_payload = payload,
+                p_hash = hash
+            });
+
+        return (long)rows.First().webhook_id;
+        }
+
+
+    // =======================================
+    // WEBHOOK STATUS UPDATE
+    // =======================================
+    public async Task UpdateWebhookStatus(
+            long logId,
+            string status)
+        {
+            await _db.ExecuteStoredAsync(
+                "sp_webhook_update_status",
+                new
+                {
+                    p_id = logId,
+                    p_status = status
+                });
+        }
+
+        public async Task<dynamic?> GetPgTransaction(string requestId)
+        {
+            var rows = await _db.GetData<dynamic>(
+                "sp_pg_get_transaction_by_request_id",
+                new { p_request_id = requestId });
+
+            return rows.FirstOrDefault();
+        }
+        public async Task UpdatePgTransactionStatus(
+        string requestId,
+        string status,
+        string payload)
+        {
+            await _db.ExecuteStoredAsync(
+                "sp_pg_transaction_update_status",
+                new
+                {
+                    p_request_id = requestId,
+                    p_status = status,
+                    p_payload = payload
+                });
+        }
+
+        //public async Task ProcessPayinWalletCredit(string requestId)
+        //{
+        //    var txn = await GetPgTransaction(requestId);
+
+        //    if (txn == null)
+        //        return;
+
+        //    await FinalizeAsync(
+        //        txn.created_by_user,
+        //        txn.amount,
+        //        "PAYIN",
+        //        requestId,
+        //        requestId,
+        //        "Wallet credit from PG");
+        //}
+
+        public async Task ProcessPayinWalletCredit(string requestId)
+        {
+            var txn = await GetPgTransaction(requestId);
+
+            if (txn == null)
+                return;
+
+            await _db.ExecuteStoredAsync(
+                "sp_wallet_credit",
+                new
+                {
+                    p_user_id = txn.created_by_user,
+                    p_amount = txn.amount,
+                    p_source_type = "PAYIN",
+                    p_source_id = requestId,
+                    p_txn_id = requestId,
+                    p_narration = "Wallet credit from PG"
+                });
+
+            // ======================
+            // SYSTEM METRICS
+            // ======================
+            await _metrics.UpdateMetric(
+                "PAYIN_SUCCESS",
+                txn.amount);
+        }
+
+        public async Task UpdateWebhookTxnLink(
+            long logId,
+            long? txnId)
+        {
+            await _db.ExecuteStoredAsync(
+                "sp_webhook_link_txn",
+                new
+                {
+                    p_id = logId,
+                    p_pg_txn_id = txnId
+                });
         }
 
         // =========================================

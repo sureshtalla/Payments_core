@@ -1,9 +1,10 @@
-﻿using System.Transactions;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models;
+using Payments_core.Models.Settings;
+using Payments_core.Services.Security;
 using Payments_core.Services.WalletService;
-
+using System.Text.Json;
 
 namespace Payments_core.Controllers
 {
@@ -13,39 +14,57 @@ namespace Payments_core.Controllers
     public class WalletController : Controller
     {
         private readonly IWalletService _service;
-        public WalletController(IWalletService service) { _service = service; }
+        private readonly AuditService _audit;
+        private readonly IdempotencyService _idempotency;
+        private readonly PaymentSettings _settings;
 
-        //[HttpPost("WalletLoad")]
-        //public async Task<IActionResult> WalletLoad([FromBody] WalletLoadInit req)
-        //{
-        //    req.TransactionId = Guid.NewGuid().ToString("N").ToUpper();
-        //    var result = await _service.WalletLoad(req);
-        //    await _service.WalletLoadCommissionPercent(req);
-        //    return Ok(new { success = true });
-        //}
-
+        public WalletController(
+        IWalletService service,
+        AuditService audit,
+        IdempotencyService idempotency,
+        PaymentSettings settings
+        )
+        {
+        _service = service;
+        _audit = audit;
+        _idempotency = idempotency;
+            _settings = settings;
+        }
 
         // ================================
         // PAYIN INIT
         // ================================
         [HttpPost("WalletLoad")]
-        public async Task<IActionResult> PayinInitiate(WalletLoadInit req)
+        public async Task<IActionResult> PayinInitiate([FromBody] WalletLoadInit req)
         {
+            if (req == null || req.Amount <= 0)
+                return BadRequest("Invalid request");
+
             req.TransactionId = Guid.NewGuid().ToString("N").ToUpper();
 
             await _service.WalletLoad(req);
 
-            return Ok(new { success = true, txnId = req.TransactionId });
+            return Ok(new
+            {
+                success = true,
+                txnId = req.TransactionId
+            });
         }
 
         // ================================
         // PAYIN SUCCESS
         // ================================
         [HttpPost("payin/success")]
-        public async Task<IActionResult> PayinSuccess(WalletLoadSuccessDto dto)
+        public async Task<IActionResult> PayinSuccess([FromBody] WalletLoadSuccessDto dto)
         {
-            await _service.UpdateWalletLoadStatus(dto.UserId,
-                dto.TransactionId, 1, "SUCCESS");
+            if (dto == null)
+                return BadRequest("Invalid request");
+
+            await _service.UpdateWalletLoadStatus(
+                dto.UserId,
+                dto.TransactionId,
+                1,
+                "SUCCESS");
 
             await _service.WalletLoadCommissionPercent(new WalletLoadInit
             {
@@ -64,23 +83,34 @@ namespace Payments_core.Controllers
         // PAYOUT INIT (HOLD)
         // ================================
         [HttpPost("payout/initiate")]
-        public async Task<IActionResult> PayoutInitiate(PayoutRequestInit req)
+        public async Task<IActionResult> PayoutInitiate([FromBody] PayoutRequestInit req)
         {
+            if (req == null || req.Amount <= 0)
+                return BadRequest("Invalid payout request");
+
             string txnId = Guid.NewGuid().ToString("N").ToUpper();
 
             decimal total = req.Amount + req.FeeAmount;
+            var key = Request.Headers["Idempotency-Key"].FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(key))
+                return BadRequest("Missing Idempotency-Key header");
+
+            var valid = await _idempotency.ValidateRequest(
+                key,
+                "PAYOUT_INIT");
+
+            if (!valid)
+                return BadRequest("Duplicate request");
 
             await _service.CheckDailyPayoutLimit(req.UserId, total);
 
-            // HOLD WALLET
             var holdTxn = await _service.HoldAsync(
                 req.UserId,
                 total,
                 "PAYOUT",
                 txnId,
                 "Payout Hold");
-
-         
 
             await _service.PayoutInitAsync(new PayoutRequest
             {
@@ -96,7 +126,7 @@ namespace Payments_core.Controllers
             return Ok(new
             {
                 success = true,
-                txnId = txnId,
+                txnId,
                 holdTxnId = holdTxn
             });
         }
@@ -105,9 +135,11 @@ namespace Payments_core.Controllers
         // PAYOUT COMPLETE
         // ================================
         [HttpPost("payout/complete")]
-        public async Task<IActionResult> PayoutComplete(
-            PayoutCompletionDto dto)
+        public async Task<IActionResult> PayoutComplete([FromBody] PayoutCompletionDto dto)
         {
+            if (dto == null)
+                return BadRequest("Invalid request");
+
             decimal total = dto.Amount + dto.FeeAmount;
 
             if (dto.Success)
@@ -134,74 +166,211 @@ namespace Payments_core.Controllers
             return Ok(new { success = true });
         }
 
-
         // ================================
-        //  Wallet Transfer
+        // WALLET TRANSFER
         // ================================
         [HttpPost("WalletTransfer")]
-        public async Task<IActionResult> WalletTransfer(WalletTransferInit req)
+        public async Task<IActionResult> WalletTransfer(
+            [FromBody] WalletTransferInit req)
         {
-            var response = await _service.WalletTransfer(req);
+            if (req == null || req.Amount <= 0)
+                return BadRequest("Invalid request");
+
+            var key = Request.Headers["Idempotency-Key"].ToString();
+
+            var valid = await _idempotency.ValidateRequest(
+                key,
+                "WALLET_TRANSFER");
+
+            if (!valid)
+                return BadRequest("Duplicate request");
+
+            await _service.WalletTransfer(req);
+
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            await _audit.InsertAuditLog(
+                req.FromUserId,
+                "WALLET_TRANSFER",
+                "wallet",
+                req.ToUserId,
+                JsonSerializer.Serialize(req),
+                ip
+            );
+
             return Ok(new { success = true });
+        }
+        // ================================
+        // CREATE PAYIN (PG ROUTING)
+        // ================================
+        [HttpPost("payin/create")]
+        public async Task<IActionResult> CreatePayin(
+            [FromBody] PayinCreateRequest req)
+        {
+            if (req == null || req.Amount <= 0)
+                return BadRequest("Invalid amount");
+
+            var key = Request.Headers["Idempotency-Key"].FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(key))
+                return BadRequest("Missing Idempotency-Key header");
+
+            var valid = await _idempotency.ValidateRequest(
+                key,
+                "PAYIN_CREATE");
+
+            if (!valid)
+                return BadRequest("Duplicate request");
+
+            // Redirect URL to Angular payment callback page
+            string callbackUrl = _settings.WebhookUrl;
+
+            var requestId =
+                await _service.CreatePayinTransaction(
+                    req.UserId,
+                    req.MerchantId,
+                    req.Amount,
+                    callbackUrl);
+
+            var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+            await _audit.InsertAuditLog(
+                req.UserId,
+                "PAYIN_CREATE",
+                "pg_transaction",
+                null,
+                JsonSerializer.Serialize(new
+                {
+                    requestId,
+                    merchantId = req.MerchantId,
+                    amount = req.Amount
+                }),
+                ip
+            );
+
+            return Ok(new
+            {
+                success = true,
+                requestId
+            });
         }
 
         // ================================
-        // BENEFICIARY MANAGEMENT
+        // CREATE PAYOUT
         // ================================
+        [HttpPost("payout/create")]
+        public async Task<IActionResult> CreatePayout(
+            [FromBody] PayoutRequestInit req)
+        {
+            var key = Request.Headers["Idempotency-Key"].ToString();
 
+            var valid = await _idempotency.ValidateRequest(
+                key,
+                "PAYOUT_CREATE");
+
+            if (!valid)
+                return BadRequest("Duplicate request");
+
+            var txnId = await _service.CreatePayoutOrder(
+                req.UserId,
+                (int)req.BeneficiaryId,
+                req.Amount,
+                req.FeeAmount,
+                req.Mode.ToString(),
+                req.TPin);
+
+            return Ok(new
+            {
+                success = true,
+                txnId
+            });
+        }
+
+        // ================================
+        // CREATE BENEFICIARY
+        // ================================
         [HttpPost("CreateBeneficiary")]
         public async Task<IActionResult> CreateBeneficiary([FromBody] Beneficiary req)
         {
-            var result = await _service.CreateBeneficiary(req);
+            await _service.CreateBeneficiary(req);
             return Ok(new { success = true });
         }
 
         // ================================
-        // beneficiary verification is a critical step before allowing payouts to that beneficiary.
+        // VERIFY BENEFICIARY
         // ================================
-
         [HttpPost("VerifyBeneficiary/{Id}")]
         public async Task<IActionResult> VerifyBeneficiary(int Id)
         {
-            var result = await _service.VerifyBeneficiary(Id);
+            await _service.VerifyBeneficiary(Id);
             return Ok(new { success = true });
         }
 
         // ================================
-        //  Beneficiary List for a User (CRITICAL FOR PAYOUTS - USER MUST SELECT BENEFICIARY BEFORE PAYOUT)
+        // GET BENEFICIARIES
         // ================================
-
-        [HttpGet]
-        [Route("GetBeneficiaries/{UserId}")]
+        [HttpGet("GetBeneficiaries/{UserId}")]
         public async Task<IActionResult> GetBeneficiaries(int UserId)
         {
-            try
-            {
-                var data = await _service.GetBeneficiaries(UserId);
-                return Ok(data);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            var data = await _service.GetBeneficiaries(UserId);
+            return Ok(data);
         }
 
         // ================================
-        //  Wallet Ledger Report (CRITICAL FOR USER TRANSACTION HISTORY AND DISPUTE RESOLUTION)
+        // WALLET LEDGER REPORT
         // ================================
-        [HttpGet]
-        [Route("GetLedgerReport/{FromDate}/{ToDate}/{TransactionType}/{UserId}")]
-        public async Task<IActionResult> GetLedgerReport(DateTime FromDate, DateTime ToDate, int TransactionType, int UserId)
+        [HttpGet("GetLedgerReport/{FromDate}/{ToDate}/{TransactionType}/{UserId}")]
+        public async Task<IActionResult> GetLedgerReport(
+            DateTime FromDate,
+            DateTime ToDate,
+            int TransactionType,
+            int UserId)
         {
-            try
+            var data = await _service.GetLedgerReport(
+                FromDate,
+                ToDate,
+                TransactionType,
+                UserId);
+
+            return Ok(data);
+        }
+
+        // ================================================
+        // WALLET BALANCE
+        // ================================================
+        [HttpGet("balance/{userId}")]
+        public async Task<IActionResult> GetWalletBalance(long userId)
+        {
+            var balance = await _service.GetWalletBalance(userId);
+
+            if (balance == null)
+                return NotFound("Wallet not found");
+
+            return Ok(balance);
+        }
+
+        // =======================================
+        // GET PAYMENT STATUS
+        // =======================================
+        [HttpGet("status/{requestId}")]
+        public async Task<IActionResult> GetStatus(string requestId)
+        {
+            var txn = await _service.GetPaymentStatus(requestId);
+
+            if (txn == null)
+                return NotFound(new
+                {
+                    success = false,
+                    message = "Transaction not found"
+                });
+
+            return Ok(new
             {
-                var data = await _service.GetLedgerReport(FromDate, ToDate, TransactionType, UserId);
-                return Ok(data);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+                success = true,
+                status = txn.status,
+                amount = txn.amount,
+                requestId = txn.request_id
+            });
         }
     }
 }

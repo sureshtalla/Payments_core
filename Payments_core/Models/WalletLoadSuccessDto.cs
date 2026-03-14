@@ -9,4 +9,6 @@
         public int ProductTypeId { get; set; }
         public int PaymentModeId { get; set; }
     }
+
+ 
 }

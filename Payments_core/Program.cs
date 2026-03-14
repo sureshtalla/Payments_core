@@ -5,14 +5,21 @@ using Microsoft.IdentityModel.Tokens;
 using Payments_core.Services.BBPSService;
 using Payments_core.Services.BBPSService.Repository;
 using Payments_core.Services.DataLayer;
+using Payments_core.Services.FailureQueue;
 using Payments_core.Services.FileStorage;
+using Payments_core.Services.Jobs;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
+using Payments_core.Services.Monitoring;
 using Payments_core.Services.OTPService;
+using Payments_core.Services.Payments;
 using Payments_core.Services.PricingMDRDataService;
+using Payments_core.Services.Reconciliation;
+using Payments_core.Services.Security;
 using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using Payments_core.Services.WalletService;
+using Payments_core.Models.Settings;
 
 namespace Payments_core
 {
@@ -58,6 +65,29 @@ namespace Payments_core
             builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
             builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
             builder.Services.AddScoped<ILocalFileService, LocalFileService>();
+            builder.Services.AddSingleton<WebhookSignatureService>();
+            builder.Services.AddScoped<ReconciliationService>();
+            builder.Services.AddHostedService<ReconciliationJob>();
+            builder.Services.AddScoped<AuditService>();
+
+            builder.Services.AddScoped<IdempotencyService>();
+            builder.Services.AddScoped<FailureService>();
+            builder.Services.AddScoped<PgRetryService>();
+            builder.Services.AddScoped<FraudService>();
+            builder.Services.AddScoped<MetricsService>();
+
+            builder.Services.AddHttpClient();
+
+            builder.Services.AddHttpClient<CashfreeGateway>();
+            builder.Services.AddHttpClient<EasebuzzGateway>();
+
+            builder.Services.AddScoped<IPaymentGateway, EasebuzzGateway>();
+            builder.Services.AddScoped<IPaymentGateway, CashfreeGateway>();
+
+            builder.Services.AddScoped<PaymentRouterService>();
+
+            builder.Services.Configure<PaymentSettings>(
+                        builder.Configuration.GetSection("PaymentSettings"));
 
             builder.Services.Configure<FormOptions>(options =>
             {
