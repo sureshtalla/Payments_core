@@ -17,25 +17,20 @@ public class KycVerificationService : IKycVerificationService
 
     public async Task<dynamic> VerifyPan(long userId, string pan)
     {
-        var result = await _client.VerifyPan(pan, "");
+        var result = await _client.VerifyPan(pan);
 
-        bool valid = result?.status == "VALID";
+        bool valid = false;
+        string name = null;
 
-        string name = result?.name;
-
-        await _db.ExecuteStoredAsync(
-            "sp_verify_pan",
-            new
-            {
-                p_user_id = userId,
-                p_pan = pan,
-                p_name = name,
-                p_verified = valid,
-                p_response = JsonConvert.SerializeObject(result)
-            });
+        if (result != null)
+        {
+            valid = result.status == "VALID";
+            name = result.name;
+        }
 
         return new
         {
+            userId = userId,
             verified = valid,
             pan_holder_name = name
         };

@@ -35,25 +35,25 @@ public class CashfreeVerificationClient
         _http.DefaultRequestHeaders.Add("User-Agent", "FINX-KYC-SERVICE");
     }
 
-    public async Task<dynamic> VerifyPan(string pan, string name)
+    public async Task<dynamic> VerifyPan(string pan)
     {
         AddHeaders();
 
         var body = new
         {
-            pan = pan,
-            name = name
+            pan = pan
         };
 
-        var res = await _http.PostAsync(
+        var response = await _http.PostAsync(
             $"{_config["Cashfree:BaseUrl"]}/pan",
             new StringContent(
                 JsonConvert.SerializeObject(body),
                 Encoding.UTF8,
                 "application/json"));
 
-        return JsonConvert.DeserializeObject(
-            await res.Content.ReadAsStringAsync());
+        var json = await response.Content.ReadAsStringAsync();
+
+        return JsonConvert.DeserializeObject<dynamic>(json);
     }
 
     public async Task<dynamic> VerifyBank(string account, string ifsc, string name)
