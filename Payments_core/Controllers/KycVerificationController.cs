@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models.KycVerification;
 using Payments_core.Services.KycVerificationService;
 
-
 [Authorize]
 [ApiController]
 [Route("api/kyc")]
@@ -19,9 +18,14 @@ public class KycVerificationController : Controller
     [HttpPost("verify-pan")]
     public async Task<IActionResult> VerifyPan(PanVerifyRequest req)
     {
-        var result = await _service.VerifyPan(
-            req.UserId,
-            req.Pan);
+        Console.WriteLine("==== PAN VERIFY REQUEST RECEIVED ====");
+        Console.WriteLine($"UserId: {req.UserId}");
+        Console.WriteLine($"PAN: {req.Pan}");
+
+        var result = await _service.VerifyPan(req.UserId, req.Pan);
+
+        Console.WriteLine("==== PAN VERIFY RESULT ====");
+        Console.WriteLine(result);
 
         return Ok(result);
     }
@@ -29,21 +33,29 @@ public class KycVerificationController : Controller
     [HttpPost("aadhaar/start")]
     public async Task<IActionResult> StartAadhaarVerification(AadhaarVerifyRequest req)
     {
-        var result = await _service.StartAadhaarVerification(
-            req.UserId,
-            req.Aadhaar);
+        Console.WriteLine("==== AADHAAR VERIFY START ====");
+        Console.WriteLine($"UserId: {req.UserId}");
+        Console.WriteLine($"Aadhaar: {req.Aadhaar}");
+
+        var result = await _service.StartAadhaarVerification(req.UserId, req.Aadhaar);
+
+        Console.WriteLine("==== DIGILOCKER LINK GENERATED ====");
+        Console.WriteLine(result);
 
         return Ok(result);
     }
 
     [HttpGet("aadhaar/complete/{userId}/{verificationId}")]
-    public async Task<IActionResult> CompleteAadhaar(
-      long userId,
-      string verificationId)
+    public async Task<IActionResult> CompleteAadhaar(long userId, string verificationId)
     {
-        var result = await _service.CompleteAadhaarVerification(
-            userId,
-            verificationId);
+        Console.WriteLine("==== AADHAAR COMPLETE VERIFY ====");
+        Console.WriteLine($"UserId: {userId}");
+        Console.WriteLine($"VerificationId: {verificationId}");
+
+        var result = await _service.CompleteAadhaarVerification(userId, verificationId);
+
+        Console.WriteLine("==== AADHAAR VERIFY RESULT ====");
+        Console.WriteLine(result);
 
         return Ok(result);
     }
@@ -51,7 +63,12 @@ public class KycVerificationController : Controller
     [HttpPost("verify-bank")]
     public async Task<IActionResult> VerifyBank(BankVerifyRequest req)
     {
+        Console.WriteLine("==== BANK VERIFY REQUEST ====");
+        Console.WriteLine($"BeneficiaryId: {req.BeneficiaryId}");
+
         bool ok = await _service.VerifyBank(req.BeneficiaryId);
+
+        Console.WriteLine($"BANK VERIFY RESULT: {ok}");
 
         return Ok(new { verified = ok });
     }
