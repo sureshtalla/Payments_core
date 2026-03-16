@@ -89,28 +89,69 @@ namespace Payments_core.Services.KycVerificationService
             };
         }
 
+        //public async Task<dynamic> CompleteAadhaarVerification(long userId, string verificationId)
+        //{
+        //    var status = await _client.GetStatus(verificationId);
+
+        //    if (status?.status?.ToString() != "VERIFIED")
+        //        return status;
+
+        //    var document = await _client.GetDocument(verificationId);
+
+        //    string name = document?.name?.ToString();
+        //    string last4 = document?.aadhaar_last4?.ToString();
+
+        //    await _db.ExecuteStoredAsync(
+        //        "sp_update_aadhaar_verified",
+        //        new
+        //        {
+        //            p_user_id = userId,
+        //            p_name = name,
+        //            p_last4 = last4
+        //        });
+
+        //    return document;
+        //}
+
         public async Task<dynamic> CompleteAadhaarVerification(long userId, string verificationId)
         {
+            Console.WriteLine("STEP 1: Checking DigiLocker verification status");
+
             var status = await _client.GetStatus(verificationId);
 
+            Console.WriteLine("Status Response:");
+            Console.WriteLine(JsonConvert.SerializeObject(status));
+
             if (status?.status?.ToString() != "VERIFIED")
+            {
+                Console.WriteLine("AADHAAR NOT VERIFIED YET");
                 return status;
+            }
+
+            Console.WriteLine("STEP 2: Fetching Aadhaar document");
 
             var document = await _client.GetDocument(verificationId);
 
-            string name = document?.name?.ToString();
-            string last4 = document?.aadhaar_last4?.ToString();
+            Console.WriteLine("Document Response:");
+            Console.WriteLine(JsonConvert.SerializeObject(document));
+
+            Console.WriteLine("STEP 3: Updating Aadhaar verification in DB");
 
             await _db.ExecuteStoredAsync(
-                "sp_update_aadhaar_verified",
+                "sp_verify_aadhaar",
                 new
                 {
                     p_user_id = userId,
-                    p_name = name,
-                    p_last4 = last4
+                    p_verified = 1
                 });
 
-            return document;
+            Console.WriteLine("STEP 4: Aadhaar verified in DB");
+
+            return new
+            {
+                userId = userId,
+                aadhaar_verified = true
+            };
         }
 
         public async Task<bool> VerifyBank(int beneficiaryId)
