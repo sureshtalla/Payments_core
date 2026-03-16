@@ -28,18 +28,38 @@ public class KycVerificationController : Controller
     }
 
     [HttpPost("aadhaar/start")]
-    public async Task<IActionResult> StartAadhaarVerification(AadhaarVerifyRequest req)
+    public async Task<IActionResult> StartAadhaarVerification([FromBody] AadhaarVerifyRequest req)
     {
         Console.WriteLine("==== AADHAAR VERIFY START ====");
         Console.WriteLine($"UserId: {req.UserId}");
         Console.WriteLine($"Aadhaar: {req.Aadhaar}");
 
-        var result = await _service.StartAadhaarVerification(req.UserId, req.Aadhaar);
+        try
+        {
+            var result = await _service.StartAadhaarVerification(req.UserId, req.Aadhaar);
 
-        Console.WriteLine("==== DIGILOCKER LINK GENERATED ====");
-        Console.WriteLine(result);
+            Console.WriteLine("==== DIGILOCKER LINK GENERATED ====");
+            Console.WriteLine(result);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            // ✅ Log and return the REAL error so we can debug
+            Console.WriteLine("==== AADHAAR START ERROR ====");
+            Console.WriteLine($"Message: {ex.Message}");
+            Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
+            Console.WriteLine($"StackTrace: {ex.StackTrace}");
+
+            return StatusCode(500, new
+            {
+                success = false,
+                code = "AADHAAR_START_ERROR",
+                message = ex.Message,
+                inner = ex.InnerException?.Message,
+                step = "StartAadhaarVerification"
+            });
+        }
     }
 
     [HttpGet("aadhaar/complete/{userId}/{verificationId}")]
@@ -58,7 +78,7 @@ public class KycVerificationController : Controller
     }
 
     [HttpPost("verify-bank")]
-    public async Task<IActionResult> VerifyBank(BankVerifyRequest req)
+    public async Task<IActionResult> VerifyBank([FromBody] BankVerifyRequest req)
     {
         Console.WriteLine("==== BANK VERIFY REQUEST ====");
         Console.WriteLine($"BeneficiaryId: {req.BeneficiaryId}");

@@ -17,6 +17,7 @@ namespace Payments_core.Services.KycVerificationService
             _db = db;
         }
 
+        // ── PAN ───────────────────────────────────────────────────────────
         public async Task<dynamic> VerifyPan(long userId, string pan)
         {
             Console.WriteLine("STEP A: Starting PAN verification");
@@ -34,10 +35,10 @@ namespace Payments_core.Services.KycVerificationService
                     valid = (bool)result.valid;
 
                 if (result.registered_name != null)
-                    name = result.registered_name.ToString();
+                    name = result.registered_name?.ToString()?.Trim();
             }
 
-            Console.WriteLine("STEP B: Calling DB Stored Procedure");
+            Console.WriteLine("STEP B: Calling sp_verify_pan");
 
             await _db.ExecuteStoredAsync(
                 "sp_verify_pan",
@@ -60,83 +61,66 @@ namespace Payments_core.Services.KycVerificationService
             };
         }
 
+        // ── AADHAAR STEP 1: Start DigiLocker session ──────────────────────
         public async Task<dynamic> StartAadhaarVerification(long userId, string aadhaar)
         {
+            Console.WriteLine($"[StartAadhaar] userId={userId}");
+
             string verificationId = "FINX" + Guid.NewGuid().ToString("N")[..10];
 
-            var verifyAccount = await _client.VerifyAccount(
-                verificationId,
-                aadhaar);
+            var verifyAccount = await _client.VerifyAccount(verificationId, aadhaar);
 
+            Console.WriteLine("[StartAadhaar] VerifyAccount: " + JsonConvert.SerializeObject(verifyAccount));
+
+            // ✅ URL comes directly from VerifyAccount response — no separate CreateLink call
+            // Cashfree returns: { "url": "https://...", "status": "PENDING", "reference_id": ... }
+            string redirectUrl = verifyAccount?.url?.ToString()
+                              ?? verifyAccount?.verification_url?.ToString()
+                              ?? verifyAccount?.redirect_url?.ToString()
+                              ?? "";
+
+            Console.WriteLine($"[StartAadhaar] redirect_url={redirectUrl}");
+
+            // ✅ Cast JValue fields to string — MySqlConnector does not support JValue directly
             await _db.ExecuteStoredAsync(
                 "sp_insert_aadhaar_verification",
                 new
                 {
                     p_user_id = userId,
                     p_verification_id = verificationId,
-                    p_reference_id = verifyAccount?.reference_id,
-                    p_digilocker_id = verifyAccount?.digilocker_id,
-                    p_status = verifyAccount?.status,
+                    p_reference_id = verifyAccount?.reference_id?.ToString(),
+                    p_digilocker_id = verifyAccount?.digilocker_id?.ToString(),
+                    p_status = verifyAccount?.status?.ToString(),
                     p_response = JsonConvert.SerializeObject(verifyAccount)
                 });
-
-            var link = await _client.CreateLink(verificationId);
 
             return new
             {
                 verification_id = verificationId,
-                redirect_url = link?.verification_url?.ToString()
+                redirect_url = redirectUrl
             };
         }
 
-        //public async Task<dynamic> CompleteAadhaarVerification(long userId, string verificationId)
-        //{
-        //    var status = await _client.GetStatus(verificationId);
-
-        //    if (status?.status?.ToString() != "VERIFIED")
-        //        return status;
-
-        //    var document = await _client.GetDocument(verificationId);
-
-        //    string name = document?.name?.ToString();
-        //    string last4 = document?.aadhaar_last4?.ToString();
-
-        //    await _db.ExecuteStoredAsync(
-        //        "sp_update_aadhaar_verified",
-        //        new
-        //        {
-        //            p_user_id = userId,
-        //            p_name = name,
-        //            p_last4 = last4
-        //        });
-
-        //    return document;
-        //}
-
+        // ── AADHAAR STEP 2: Poll status (frontend calls every 5s) ─────────
         public async Task<dynamic> CompleteAadhaarVerification(long userId, string verificationId)
         {
-            Console.WriteLine("STEP 1: Checking DigiLocker verification status");
+            Console.WriteLine($"[CompleteAadhaar] userId={userId}, id={verificationId}");
 
             var status = await _client.GetStatus(verificationId);
 
-            Console.WriteLine("Status Response:");
-            Console.WriteLine(JsonConvert.SerializeObject(status));
+            Console.WriteLine("[CompleteAadhaar] Status: " + JsonConvert.SerializeObject(status));
 
-            if (status?.status?.ToString() != "VERIFIED")
+            string statusStr = (status?.status?.ToString()?.Trim() ?? "PENDING").ToUpper();
+
+            if (statusStr != "VERIFIED")
             {
-                Console.WriteLine("AADHAAR NOT VERIFIED YET");
-                return status;
+                Console.WriteLine($"[CompleteAadhaar] Not verified yet — {statusStr}");
+                return new { status = statusStr };
             }
 
-            Console.WriteLine("STEP 2: Fetching Aadhaar document");
+            Console.WriteLine("[CompleteAadhaar] VERIFIED — updating DB");
 
-            var document = await _client.GetDocument(verificationId);
-
-            Console.WriteLine("Document Response:");
-            Console.WriteLine(JsonConvert.SerializeObject(document));
-
-            Console.WriteLine("STEP 3: Updating Aadhaar verification in DB");
-
+            // ✅ Matches your sp_verify_aadhaar exactly — only p_user_id and p_verified
             await _db.ExecuteStoredAsync(
                 "sp_verify_aadhaar",
                 new
@@ -145,15 +129,17 @@ namespace Payments_core.Services.KycVerificationService
                     p_verified = 1
                 });
 
-            Console.WriteLine("STEP 4: Aadhaar verified in DB");
+            Console.WriteLine("[CompleteAadhaar] DB updated — aadhaar_verified = 1");
 
             return new
             {
+                status = "VERIFIED",
                 userId = userId,
                 aadhaar_verified = true
             };
         }
 
+        // ── BANK ──────────────────────────────────────────────────────────
         public async Task<bool> VerifyBank(int beneficiaryId)
         {
             var ben = (await _db.GetData<dynamic>(
