@@ -85,10 +85,10 @@ namespace Payments_core
 
             builder.Services.AddScoped<IPaymentGateway, EasebuzzGateway>();
             builder.Services.AddScoped<IPaymentGateway, CashfreeGateway>();
-
-            builder.Services.AddHttpClient<CashfreeVerificationClient>();
-
+        
             builder.Services.AddScoped<IKycVerificationService, KycVerificationService>();
+            builder.Services.AddScoped<KycApiCredentialService>();
+            builder.Services.AddHttpClient<CashfreeVerificationClient>();
 
             builder.Services.AddScoped<PaymentRouterService>();
 

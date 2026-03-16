@@ -19,29 +19,38 @@ namespace Payments_core.Services.KycVerificationService
 
         public async Task<dynamic> VerifyPan(long userId, string pan)
         {
-            Console.WriteLine("==== SERVICE PAN VERIFY ====");
-            Console.WriteLine($"UserId: {userId}");
-            Console.WriteLine($"PAN: {pan}");
+            Console.WriteLine("STEP A: Starting PAN verification");
 
             var result = await _client.VerifyPan(pan);
-
-            Console.WriteLine("Cashfree PAN Raw Response:");
-            Console.WriteLine(JsonConvert.SerializeObject(result));
 
             bool valid = false;
             string name = null;
 
             if (result != null)
             {
-                if (result.status != null)
-                    valid = result.status.ToString() == "VALID";
+                Console.WriteLine("Cashfree Raw Response: " + result.ToString());
 
-                if (result.name != null)
-                    name = result.name.ToString();
+                if (result.valid != null)
+                    valid = (bool)result.valid;
+
+                if (result.registered_name != null)
+                    name = result.registered_name.ToString();
             }
 
-            Console.WriteLine($"PAN VALID: {valid}");
-            Console.WriteLine($"PAN NAME: {name}");
+            Console.WriteLine("STEP B: Calling DB Stored Procedure");
+
+            await _db.ExecuteStoredAsync(
+                "sp_verify_pan",
+                new
+                {
+                    p_user_id = userId,
+                    p_pan = pan,
+                    p_name = name,
+                    p_verified = valid ? 1 : 0,
+                    p_response = JsonConvert.SerializeObject(result)
+                });
+
+            Console.WriteLine("STEP C: DB Updated");
 
             return new
             {

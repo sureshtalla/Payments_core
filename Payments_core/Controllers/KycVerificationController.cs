@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models.KycVerification;
 using Payments_core.Services.KycVerificationService;
 
-[Authorize]
-[ApiController]
+//[Authorize]
+//[ApiController]
 [Route("api/kyc")]
 public class KycVerificationController : Controller
 {
@@ -16,16 +16,13 @@ public class KycVerificationController : Controller
     }
 
     [HttpPost("verify-pan")]
-    public async Task<IActionResult> VerifyPan(PanVerifyRequest req)
+    public async Task<IActionResult> VerifyPan([FromBody] PanVerifyRequest req)
     {
-        Console.WriteLine("==== PAN VERIFY REQUEST RECEIVED ====");
+        Console.WriteLine("PAN VERIFY REQUEST");
         Console.WriteLine($"UserId: {req.UserId}");
         Console.WriteLine($"PAN: {req.Pan}");
 
         var result = await _service.VerifyPan(req.UserId, req.Pan);
-
-        Console.WriteLine("==== PAN VERIFY RESULT ====");
-        Console.WriteLine(result);
 
         return Ok(result);
     }
