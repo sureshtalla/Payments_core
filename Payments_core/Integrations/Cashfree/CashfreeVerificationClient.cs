@@ -70,24 +70,51 @@ namespace Payments_core.Integrations.Cashfree
         }
 
         // ── BANK ─────────────────────────────────────────────────────────
-        // GET /bank-account?bank_account=&ifsc=&name=
+        // GET /bank-account?bank_account=&ifsc=&name=&reference_id=
         public async Task<dynamic> VerifyBank(string account, string ifsc, string name)
         {
             await AddHeaders();
 
-            var encodedAccount = Uri.EscapeDataString(account);
-            var encodedIfsc = Uri.EscapeDataString(ifsc);
-            var encodedName = Uri.EscapeDataString(name);
+            var body = new
+            {
+                bank_account = account,
+                ifsc = ifsc,
+                name = name,
+                user_id = $"ben_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+            };
+
+            Console.WriteLine("[VerifyBank] POST " + $"{_config["Cashfree:BaseUrl"]}/bank-account/async");
+            Console.WriteLine("[VerifyBank] Body: " + JsonConvert.SerializeObject(body));
+
+            var response = await _http.PostAsync(
+                $"{_config["Cashfree:BaseUrl"]}/bank-account/async",
+                new StringContent(
+                    JsonConvert.SerializeObject(body),
+                    Encoding.UTF8,
+                    "application/json"));
+
+            return await HandleResponse(response);
+        }
+
+
+
+
+        public async Task<dynamic> GetBankVerificationStatus(string referenceId)
+        {
+            await AddHeaders();
+
+            var encodedReferenceId = Uri.EscapeDataString(referenceId);
 
             var url = $"{_config["Cashfree:BaseUrl"]}/bank-account"
-                    + $"?bank_account={encodedAccount}&ifsc={encodedIfsc}&name={encodedName}";
+                    + $"?reference_id={encodedReferenceId}";
 
-            Console.WriteLine($"[VerifyBank] GET {url}");
+            Console.WriteLine($"[GetBankVerificationStatus] GET {url}");
 
             var response = await _http.GetAsync(url);
 
             return await HandleResponse(response);
         }
+
 
         // ── DIGILOCKER STEP 1 ─────────────────────────────────────────────
         // POST /verification/digilocker
@@ -99,11 +126,6 @@ namespace Payments_core.Integrations.Cashfree
         {
             await AddHeaders();
 
-            // ✅ Cashfree DigiLocker API:
-            // - document_requested must be an ARRAY e.g. ["AADHAAR"]
-            // - redirect_url is required
-            // - user_flow: "signup" (new user) or "signin" (existing DigiLocker user)
-            // - Response contains "url" directly — no separate CreateLink call needed
             var body = new
             {
                 verification_id = verificationId,
@@ -126,9 +148,6 @@ namespace Payments_core.Integrations.Cashfree
 
         // ── DIGILOCKER STEP 2 ─────────────────────────────────────────────
         // POST /verification/digilocker/link
-        //
-        // FIX: Your original endpoint was /digilocker/create-link
-        // Correct Cashfree endpoint is /verification/digilocker/link
         public async Task<dynamic> CreateLink(string verificationId)
         {
             await AddHeaders();
@@ -136,7 +155,7 @@ namespace Payments_core.Integrations.Cashfree
             var body = new { verification_id = verificationId };
 
             var response = await _http.PostAsync(
-                $"{_config["Cashfree:BaseUrl"]}/digilocker/link",  // ✅ FIXED
+                $"{_config["Cashfree:BaseUrl"]}/digilocker/link",
                 new StringContent(
                     JsonConvert.SerializeObject(body),
                     Encoding.UTF8, "application/json"));
@@ -146,14 +165,10 @@ namespace Payments_core.Integrations.Cashfree
 
         // ── DIGILOCKER STATUS ─────────────────────────────────────────────
         // GET /verification/digilocker/{verificationId}
-        //
-        // FIX: Your original endpoint was /digilocker/status/{id}
-        // Correct Cashfree endpoint is /verification/digilocker/{id}
         public async Task<dynamic> GetStatus(string verificationId)
         {
             await AddHeaders();
 
-            // ✅ Cashfree status: GET /verification/digilocker?verification_id=xxx
             var response = await _http.GetAsync(
                 $"{_config["Cashfree:BaseUrl"]}/digilocker?verification_id={verificationId}");
 
@@ -162,14 +177,10 @@ namespace Payments_core.Integrations.Cashfree
 
         // ── DIGILOCKER DOCUMENT ───────────────────────────────────────────
         // GET /verification/digilocker/{verificationId}/aadhaar
-        //
-        // FIX: Your original endpoint was /digilocker/document/{id}
-        // Correct Cashfree endpoint is /verification/digilocker/{id}/aadhaar
         public async Task<dynamic> GetDocument(string verificationId)
         {
             await AddHeaders();
 
-            // ✅ Cashfree document: GET /verification/digilocker/fetch-data?verification_id=xxx&document_type=AADHAAR
             var response = await _http.GetAsync(
                 $"{_config["Cashfree:BaseUrl"]}/digilocker/fetch-data?verification_id={verificationId}&document_type=AADHAAR");
 

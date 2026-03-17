@@ -11,6 +11,7 @@
         Task<dynamic> CompleteAadhaarVerification(long userId, string verificationId);
 
         // Bank account verification
-        Task<bool> VerifyBank(int beneficiaryId);
+        Task<dynamic> VerifyBank(int beneficiaryId);
+        Task<dynamic> GetBankVerificationStatus(string referenceId);
     }
 }

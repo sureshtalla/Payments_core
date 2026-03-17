@@ -1,10 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Payments_core.Models.KycVerification;
 using Payments_core.Services.KycVerificationService;
 
-//[Authorize]
-//[ApiController]
 [Route("api/kyc")]
 public class KycVerificationController : Controller
 {
@@ -45,7 +42,6 @@ public class KycVerificationController : Controller
         }
         catch (Exception ex)
         {
-            // ✅ Log and return the REAL error so we can debug
             Console.WriteLine("==== AADHAAR START ERROR ====");
             Console.WriteLine($"Message: {ex.Message}");
             Console.WriteLine($"InnerException: {ex.InnerException?.Message}");
@@ -85,9 +81,9 @@ public class KycVerificationController : Controller
 
         try
         {
-            bool ok = await _service.VerifyBank(req.BeneficiaryId);
-            Console.WriteLine($"BANK VERIFY RESULT: {ok}");
-            return Ok(new { verified = ok });
+            var result = await _service.VerifyBank(req.BeneficiaryId);
+            Console.WriteLine($"BANK VERIFY RESULT: {result}");
+            return Ok(result);
         }
         catch (Exception ex)
         {
@@ -99,14 +95,42 @@ public class KycVerificationController : Controller
                 return NotFound(new { success = false, message = ex.Message });
 
             if (msg.Contains("credentials"))
-                return StatusCode(503, new { success = false, message = "Verification service not configured. Please contact support." });
+                return StatusCode(503, new
+                {
+                    success = false,
+                    message = "Verification service not configured. Please contact support."
+                });
 
-            // Cashfree API error — return actual error for debugging
             return StatusCode(502, new
             {
                 success = false,
                 message = "Bank verification service unavailable. Please try again later.",
-                detail = ex.Message   // visible in browser network tab
+                detail = ex.Message
+            });
+        }
+    }
+
+    [HttpGet("verify-bank-status")]
+    public async Task<IActionResult> GetBankVerificationStatus([FromQuery] string referenceId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(referenceId))
+                return BadRequest(new { success = false, message = "referenceId is required" });
+
+            var result = await _service.GetBankVerificationStatus(referenceId);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("BANK VERIFY STATUS ERROR: " + ex.Message);
+
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Bank verification status check failed.",
+                detail = ex.Message
             });
         }
     }

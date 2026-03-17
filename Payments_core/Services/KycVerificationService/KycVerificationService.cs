@@ -61,6 +61,57 @@ namespace Payments_core.Services.KycVerificationService
             };
         }
 
+        public async Task<dynamic> GetBankVerificationStatus(string referenceId)
+        {
+            Console.WriteLine($"[GetBankVerificationStatus] ReferenceId={referenceId}");
+
+            var result = await _client.GetBankVerificationStatus(referenceId);
+
+            Console.WriteLine("[GetBankVerificationStatus] Cashfree raw result: " +
+                JsonConvert.SerializeObject(result, Formatting.Indented));
+
+            string accountStatus = result?.account_status?.ToString() ?? "";
+            string statusCode = result?.account_status_code?.ToString() ?? "";
+
+            bool verified = false;
+            bool pending = false;
+
+            if (statusCode == "VALIDATION_IN_PROGRESS" || accountStatus == "RECEIVED")
+            {
+                pending = true;
+            }
+            else if (
+                accountStatus.Equals("VALID", StringComparison.OrdinalIgnoreCase) ||
+                statusCode.Equals("ACCOUNT_IS_VALID", StringComparison.OrdinalIgnoreCase)
+            )
+            {
+                verified = true;
+                pending = false;
+            }
+            else
+            {
+                verified = false;
+                pending = false;
+            }
+
+            string finalReferenceId = result?.reference_id?.ToString() ?? "";
+            string finalUserId = result?.user_id?.ToString() ?? "";
+
+            return new
+            {
+                verified,
+                pending,
+                referenceId = finalReferenceId,
+                userId = finalUserId,
+                status = accountStatus,
+                statusCode = statusCode,
+                raw = JsonConvert.DeserializeObject<object>(JsonConvert.SerializeObject(result))
+            };
+        }
+
+
+
+
         // ── AADHAAR STEP 1: Start DigiLocker session ──────────────────────
         public async Task<dynamic> StartAadhaarVerification(long userId, string aadhaar)
         {
@@ -140,9 +191,8 @@ namespace Payments_core.Services.KycVerificationService
         }
 
         // ── BANK ──────────────────────────────────────────────────────────
-        public async Task<bool> VerifyBank(int beneficiaryId)
+        public async Task<dynamic> VerifyBank(int beneficiaryId)
         {
-            // ── Step 1: Fetch beneficiary from DB ──────────────────────
             Console.WriteLine($"[VerifyBank] Fetching beneficiary {beneficiaryId}");
 
             var rows = await _db.GetData<dynamic>(
@@ -163,40 +213,54 @@ namespace Payments_core.Services.KycVerificationService
             if (string.IsNullOrWhiteSpace(account) || string.IsNullOrWhiteSpace(ifsc))
                 throw new Exception("Beneficiary account or IFSC is empty");
 
-            // ── Step 2: Call Cashfree API ──────────────────────────────
             Console.WriteLine("[VerifyBank] Calling Cashfree bank-account API");
-
-            bool valid = false;
-            string? reference = null;
 
             try
             {
                 var result = await _client.VerifyBank(account, ifsc, name);
-                Console.WriteLine($"[VerifyBank] Cashfree raw result: {result}");
 
-                valid = result?.account_status?.ToString() == "VALID";
-                reference = result?.reference_id?.ToString();
+                Console.WriteLine("[VerifyBank] Cashfree raw result: " +
+                    JsonConvert.SerializeObject(result, Formatting.Indented));
 
-                Console.WriteLine($"[VerifyBank] Valid={valid}");
+                string accountStatus = result?.account_status?.ToString() ?? "";
+                string statusCode = result?.account_status_code?.ToString() ?? "";
+
+                bool pending =
+                    statusCode == "VALIDATION_IN_PROGRESS" ||
+                    accountStatus == "RECEIVED";
+
+                bool verified =
+                    accountStatus.Equals("VALID", StringComparison.OrdinalIgnoreCase) ||
+                    statusCode.Equals("ACCOUNT_IS_VALID", StringComparison.OrdinalIgnoreCase);
+
+                string referenceId = result?.reference_id?.ToString() ?? "";
+                string userId = result?.user_id?.ToString() ?? "";
+
+                await _db.ExecuteStoredAsync(
+                    "sp_verify_beneficiary_api",
+                    new
+                    {
+                        p_id = beneficiaryId,
+                        p_verified = verified ? 1 : 0,
+                        p_reference = referenceId
+                    });
+
+                return new
+                {
+                    verified,
+                    pending,
+                    referenceId = referenceId,
+                    userId = userId,
+                    status = accountStatus,
+                    statusCode = statusCode,
+                    raw = JsonConvert.DeserializeObject<object>(JsonConvert.SerializeObject(result))
+                };
             }
             catch (Exception apiEx)
             {
                 Console.WriteLine($"[VerifyBank] Cashfree API failed: {apiEx.Message}");
-                // Re-throw so controller returns 502 with user-friendly message
                 throw new Exception("Cashfree API error: " + apiEx.Message);
             }
-
-            // ── Step 3: Save result to DB ──────────────────────────────
-            await _db.ExecuteStoredAsync(
-                "sp_verify_beneficiary_api",
-                new
-                {
-                    p_id = beneficiaryId,
-                    p_verified = valid,
-                    p_reference = reference
-                });
-
-            return valid;
         }
     }
 }
