@@ -109,16 +109,15 @@ public class KycVerificationController : Controller
             });
         }
     }
-
     [HttpGet("verify-bank-status")]
-    public async Task<IActionResult> GetBankVerificationStatus([FromQuery] string referenceId)
+    public async Task<IActionResult> GetBankVerificationStatus([FromQuery] string referenceId, [FromQuery] int beneficiaryId)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(referenceId))
                 return BadRequest(new { success = false, message = "referenceId is required" });
 
-            var result = await _service.GetBankVerificationStatus(referenceId);
+            var result = await _service.GetBankVerificationStatus(referenceId, beneficiaryId);
 
             return Ok(result);
         }

@@ -61,9 +61,9 @@ namespace Payments_core.Services.KycVerificationService
             };
         }
 
-        public async Task<dynamic> GetBankVerificationStatus(string referenceId)
+        public async Task<dynamic> GetBankVerificationStatus(string referenceId, int beneficiaryId)
         {
-            Console.WriteLine($"[GetBankVerificationStatus] ReferenceId={referenceId}");
+            Console.WriteLine($"[GetBankVerificationStatus] ReferenceId={referenceId}, BeneficiaryId={beneficiaryId}");
 
             var result = await _client.GetBankVerificationStatus(referenceId);
 
@@ -72,6 +72,26 @@ namespace Payments_core.Services.KycVerificationService
 
             string accountStatus = result?.account_status?.ToString() ?? "";
             string statusCode = result?.account_status_code?.ToString() ?? "";
+
+            string finalReferenceId = result?.reference_id?.ToString() ?? "";
+            string finalUserId = result?.user_id?.ToString() ?? "";
+
+            string nameAtBank = result?.name_at_bank?.ToString() ?? "";
+            string bankName = result?.bank_name?.ToString() ?? "";
+            string utr = result?.utr?.ToString() ?? "";
+            string city = result?.city?.ToString() ?? "";
+            string branch = result?.branch?.ToString() ?? "";
+            string micr = result?.micr?.ToString() ?? "";
+            string nameMatchScore = result?.name_match_score?.ToString() ?? "";
+            string nameMatchResult = result?.name_match_result?.ToString() ?? "";
+
+            string ifscCode = result?.ifsc_details?.ifsc?.ToString() ?? "";
+            string ifscBank = result?.ifsc_details?.bank?.ToString() ?? "";
+            string ifscBranch = result?.ifsc_details?.branch?.ToString() ?? "";
+            string ifscCity = result?.ifsc_details?.city?.ToString() ?? "";
+            string ifscState = result?.ifsc_details?.state?.ToString() ?? "";
+            string ifscAddress = result?.ifsc_details?.address?.ToString() ?? "";
+            string swiftCode = result?.ifsc_details?.swift_code?.ToString() ?? "";
 
             bool verified = false;
             bool pending = false;
@@ -87,15 +107,28 @@ namespace Payments_core.Services.KycVerificationService
             {
                 verified = true;
                 pending = false;
+
+                await _db.ExecuteStoredAsync(
+                    "sp_verify_beneficiary_api",
+                    new
+                    {
+                        p_id = beneficiaryId,
+                        p_verified = 1,
+                        p_reference = finalReferenceId,
+                        p_beneficiary_name = nameAtBank,
+                        p_bank_name = bankName,
+                        p_ifsc_code = ifscCode,
+                        p_branch = branch,
+                        p_city = city,
+                        p_state = ifscState,
+                        p_micr = micr
+                    });
             }
             else
             {
                 verified = false;
                 pending = false;
             }
-
-            string finalReferenceId = result?.reference_id?.ToString() ?? "";
-            string finalUserId = result?.user_id?.ToString() ?? "";
 
             return new
             {
@@ -105,12 +138,26 @@ namespace Payments_core.Services.KycVerificationService
                 userId = finalUserId,
                 status = accountStatus,
                 statusCode = statusCode,
-                raw = JsonConvert.DeserializeObject<object>(JsonConvert.SerializeObject(result))
+                nameAtBank,
+                bankName,
+                utr,
+                city,
+                branch,
+                micr,
+                nameMatchScore,
+                nameMatchResult,
+                ifscDetails = new
+                {
+                    ifsc = ifscCode,
+                    bank = ifscBank,
+                    branch = ifscBranch,
+                    city = ifscCity,
+                    state = ifscState,
+                    address = ifscAddress,
+                    swiftCode
+                }
             };
         }
-
-
-
 
         // ── AADHAAR STEP 1: Start DigiLocker session ──────────────────────
         public async Task<dynamic> StartAadhaarVerification(long userId, string aadhaar)
@@ -242,18 +289,24 @@ namespace Payments_core.Services.KycVerificationService
                     {
                         p_id = beneficiaryId,
                         p_verified = verified ? 1 : 0,
-                        p_reference = referenceId
+                        p_reference = referenceId,
+                        p_beneficiary_name = "",
+                        p_bank_name = "",
+                        p_ifsc_code = "",
+                        p_branch = "",
+                        p_city = "",
+                        p_state = "",
+                        p_micr = ""
                     });
 
                 return new
                 {
                     verified,
                     pending,
-                    referenceId = referenceId,
-                    userId = userId,
+                    referenceId,
+                    userId,
                     status = accountStatus,
-                    statusCode = statusCode,
-                    raw = JsonConvert.DeserializeObject<object>(JsonConvert.SerializeObject(result))
+                    statusCode = statusCode
                 };
             }
             catch (Exception apiEx)
@@ -262,5 +315,6 @@ namespace Payments_core.Services.KycVerificationService
                 throw new Exception("Cashfree API error: " + apiEx.Message);
             }
         }
+
     }
 }

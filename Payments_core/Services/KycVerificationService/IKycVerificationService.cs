@@ -12,6 +12,6 @@
 
         // Bank account verification
         Task<dynamic> VerifyBank(int beneficiaryId);
-        Task<dynamic> GetBankVerificationStatus(string referenceId);
+        Task<dynamic> GetBankVerificationStatus(string referenceId, int beneficiaryId);
     }
 }
