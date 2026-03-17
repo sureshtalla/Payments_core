@@ -83,10 +83,31 @@ public class KycVerificationController : Controller
         Console.WriteLine("==== BANK VERIFY REQUEST ====");
         Console.WriteLine($"BeneficiaryId: {req.BeneficiaryId}");
 
-        bool ok = await _service.VerifyBank(req.BeneficiaryId);
+        try
+        {
+            bool ok = await _service.VerifyBank(req.BeneficiaryId);
+            Console.WriteLine($"BANK VERIFY RESULT: {ok}");
+            return Ok(new { verified = ok });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"BANK VERIFY ERROR: {ex.Message}");
 
-        Console.WriteLine($"BANK VERIFY RESULT: {ok}");
+            var msg = ex.Message.ToLower();
 
-        return Ok(new { verified = ok });
+            if (msg.Contains("not found"))
+                return NotFound(new { success = false, message = ex.Message });
+
+            if (msg.Contains("credentials"))
+                return StatusCode(503, new { success = false, message = "Verification service not configured. Please contact support." });
+
+            // Cashfree API error — return actual error for debugging
+            return StatusCode(502, new
+            {
+                success = false,
+                message = "Bank verification service unavailable. Please try again later.",
+                detail = ex.Message   // visible in browser network tab
+            });
+        }
     }
 }

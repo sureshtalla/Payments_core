@@ -184,7 +184,9 @@ namespace Payments_core.Services.WalletService
                 p_UserId = req.UserId,
                 p_BeneficiaryName = req.BeneficiaryName,
                 p_AccountNumber = req.AccountNumber,
-                p_IFSCCode = req.IFSCCode
+                p_IFSCCode = req.IFSCCode,
+                  p_BankName = req.BankName,    // ← ADD THIS
+                p_Mobile = req.Mobile       // ← ADD THIS
             });
 
         // ===========================

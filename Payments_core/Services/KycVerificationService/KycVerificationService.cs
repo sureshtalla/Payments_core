@@ -142,27 +142,58 @@ namespace Payments_core.Services.KycVerificationService
         // ── BANK ──────────────────────────────────────────────────────────
         public async Task<bool> VerifyBank(int beneficiaryId)
         {
-            var ben = (await _db.GetData<dynamic>(
+            // ── Step 1: Fetch beneficiary from DB ──────────────────────
+            Console.WriteLine($"[VerifyBank] Fetching beneficiary {beneficiaryId}");
+
+            var rows = await _db.GetData<dynamic>(
                 "sp_get_beneficiary",
-                new { p_id = beneficiaryId })).FirstOrDefault();
+                new { p_id = beneficiaryId });
+
+            var ben = rows.FirstOrDefault();
 
             if (ben == null)
-                throw new Exception("Beneficiary not found");
+                throw new Exception($"Beneficiary not found for id={beneficiaryId}");
 
-            var result = await _client.VerifyBank(
-                ben.AccountNumber.ToString(),
-                ben.IFSCCode.ToString(),
-                ben.BeneficiaryName.ToString());
+            string account = ben.AccountNumber?.ToString() ?? string.Empty;
+            string ifsc = ben.IFSCCode?.ToString() ?? string.Empty;
+            string name = ben.BeneficiaryName?.ToString() ?? string.Empty;
 
-            bool valid = result?.account_status?.ToString() == "VALID";
+            Console.WriteLine($"[VerifyBank] Account={account}, IFSC={ifsc}, Name={name}");
 
+            if (string.IsNullOrWhiteSpace(account) || string.IsNullOrWhiteSpace(ifsc))
+                throw new Exception("Beneficiary account or IFSC is empty");
+
+            // ── Step 2: Call Cashfree API ──────────────────────────────
+            Console.WriteLine("[VerifyBank] Calling Cashfree bank-account API");
+
+            bool valid = false;
+            string? reference = null;
+
+            try
+            {
+                var result = await _client.VerifyBank(account, ifsc, name);
+                Console.WriteLine($"[VerifyBank] Cashfree raw result: {result}");
+
+                valid = result?.account_status?.ToString() == "VALID";
+                reference = result?.reference_id?.ToString();
+
+                Console.WriteLine($"[VerifyBank] Valid={valid}");
+            }
+            catch (Exception apiEx)
+            {
+                Console.WriteLine($"[VerifyBank] Cashfree API failed: {apiEx.Message}");
+                // Re-throw so controller returns 502 with user-friendly message
+                throw new Exception("Cashfree API error: " + apiEx.Message);
+            }
+
+            // ── Step 3: Save result to DB ──────────────────────────────
             await _db.ExecuteStoredAsync(
                 "sp_verify_beneficiary_api",
                 new
                 {
                     p_id = beneficiaryId,
                     p_verified = valid,
-                    p_reference = result?.reference_id
+                    p_reference = reference
                 });
 
             return valid;

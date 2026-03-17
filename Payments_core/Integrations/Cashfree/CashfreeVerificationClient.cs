@@ -70,21 +70,21 @@ namespace Payments_core.Integrations.Cashfree
         }
 
         // ── BANK ─────────────────────────────────────────────────────────
-        // POST /bank-account
+        // GET /bank-account?bank_account=&ifsc=&name=
         public async Task<dynamic> VerifyBank(string account, string ifsc, string name)
         {
             await AddHeaders();
 
-            var response = await _http.PostAsync(
-                $"{_config["Cashfree:BaseUrl"]}/bank-account",
-                new StringContent(
-                    JsonConvert.SerializeObject(new
-                    {
-                        bank_account = account,
-                        ifsc = ifsc,
-                        name = name
-                    }),
-                    Encoding.UTF8, "application/json"));
+            var encodedAccount = Uri.EscapeDataString(account);
+            var encodedIfsc = Uri.EscapeDataString(ifsc);
+            var encodedName = Uri.EscapeDataString(name);
+
+            var url = $"{_config["Cashfree:BaseUrl"]}/bank-account"
+                    + $"?bank_account={encodedAccount}&ifsc={encodedIfsc}&name={encodedName}";
+
+            Console.WriteLine($"[VerifyBank] GET {url}");
+
+            var response = await _http.GetAsync(url);
 
             return await HandleResponse(response);
         }

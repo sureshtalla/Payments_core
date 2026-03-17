@@ -20,6 +20,17 @@
 
     }
 
+    // ============================================================
+    // BANK DTO - used for dropdown binding at frontend
+    // ============================================================
+    public class BankDto
+    {
+        public int Id { get; set; }
+        public string BankName { get; set; } = string.Empty;
+        public string ShortName { get; set; } = string.Empty;
+        public string BankType { get; set; } = string.Empty;
+        public string? IFSCPrefix { get; set; }
+    }
     public class ProviderDto
     {
         public int Id { get; set; }

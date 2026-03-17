@@ -37,22 +37,28 @@
         public decimal Amount { get; set; }
     }
 
+    // ── Request model (used for CreateBeneficiary) ──
     public class Beneficiary
     {
         public long UserId { get; set; }
         public required string BeneficiaryName { get; set; }
         public required string AccountNumber { get; set; }
         public required string IFSCCode { get; set; }
+        public string BankName { get; set; } = string.Empty;
+        public string Mobile { get; set; } = string.Empty;
     }
 
+    // ── Response DTO (used for GetBeneficiaries) ──
     public class BeneficiaryDto
     {
         public long Id { get; set; }
-        public required string BeneficiaryName { get; set; }
-        public required string AccountNumber { get; set; }
-        public required string IFSCCode { get; set; }
-        // true = Verified, false = Pending
-        public bool IsVerified { get; set; }
+        public string BeneficiaryName { get; set; } = string.Empty;
+        public string AccountNumber { get; set; } = string.Empty;
+        public string AccountMask { get; set; } = string.Empty;
+        public string BankName { get; set; } = string.Empty;    // ← ADD
+        public string IFSCCode { get; set; } = string.Empty;
+        public string Mobile { get; set; } = string.Empty;      // ← ADD
+        public int IsVerified { get; set; }
         public DateTime CreatedOn { get; set; }
     }
 

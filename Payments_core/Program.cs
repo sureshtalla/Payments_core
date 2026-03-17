@@ -1,13 +1,16 @@
-﻿using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
+using Payments_core.Integrations.Cashfree;
+using Payments_core.Models.Settings;
+using Payments_core.Services.BankService;
 using Payments_core.Services.BBPSService;
 using Payments_core.Services.BBPSService.Repository;
 using Payments_core.Services.DataLayer;
 using Payments_core.Services.FailureQueue;
 using Payments_core.Services.FileStorage;
 using Payments_core.Services.Jobs;
+using Payments_core.Services.KycVerificationService;
 using Payments_core.Services.MasterDataService;
 using Payments_core.Services.MerchantDataService;
 using Payments_core.Services.Monitoring;
@@ -19,9 +22,8 @@ using Payments_core.Services.Security;
 using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using Payments_core.Services.WalletService;
-using Payments_core.Models.Settings;
-using Payments_core.Services.KycVerificationService;
-using Payments_core.Integrations.Cashfree;
+using System.Text;
+using Payments_core.Services.BankService;
 
 namespace Payments_core
 {
@@ -91,6 +93,7 @@ namespace Payments_core
             builder.Services.AddHttpClient<CashfreeVerificationClient>();
 
             builder.Services.AddScoped<PaymentRouterService>();
+            builder.Services.AddScoped<IBankService, BankService>();
 
             builder.Services.Configure<PaymentSettings>(
                         builder.Configuration.GetSection("PaymentSettings"));

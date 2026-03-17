@@ -5,6 +5,7 @@ using Payments_core.Models.Settings;
 using Payments_core.Services.Security;
 using Payments_core.Services.WalletService;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 
 namespace Payments_core.Controllers
 {
@@ -16,19 +17,20 @@ namespace Payments_core.Controllers
         private readonly IWalletService _service;
         private readonly AuditService _audit;
         private readonly IdempotencyService _idempotency;
+        // Keep as is - just store the resolved value
         private readonly PaymentSettings _settings;
 
         public WalletController(
         IWalletService service,
         AuditService audit,
         IdempotencyService idempotency,
-        PaymentSettings settings
+         IOptions<PaymentSettings> settings  // ← wrap with IOptions<>
         )
         {
         _service = service;
         _audit = audit;
         _idempotency = idempotency;
-            _settings = settings;
+            _settings = settings.Value;
         }
 
         // ================================
