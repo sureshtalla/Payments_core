@@ -210,7 +210,14 @@ namespace Payments_core.Services.KycVerificationService
 
             string statusStr = (status?.status?.ToString()?.Trim() ?? "PENDING").ToUpper();
 
-            if (statusStr != "VERIFIED")
+            // ✅ Cashfree DigiLocker returns "AUTHENTICATED" after user completes consent
+            // Treat AUTHENTICATED / SUCCESS / COMPLETED as equivalent to VERIFIED
+            bool isVerifiedStatus = statusStr == "VERIFIED"
+                                 || statusStr == "AUTHENTICATED"
+                                 || statusStr == "SUCCESS"
+                                 || statusStr == "COMPLETED";
+
+            if (!isVerifiedStatus)
             {
                 Console.WriteLine($"[CompleteAadhaar] Not verified yet — {statusStr}");
                 return new { status = statusStr };
