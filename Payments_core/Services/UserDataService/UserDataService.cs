@@ -96,7 +96,7 @@ namespace Payments_core.Services.UserDataService
         public async Task<IEnumerable<UserManagementResponse?>> GetUserManagementProfile()
         {
             var param = new DynamicParameters();
-           return await _dbContext.GetData<UserManagementResponse>("sp_GetUsers", param);
+            return await _dbContext.GetData<UserManagementResponse>("sp_GetUsers", param);
         }
         public async Task<bool> ManageUserStatusAsync(ManageUserStatusRequest request)
         {
@@ -191,7 +191,23 @@ namespace Payments_core.Services.UserDataService
             if (row == null)
                 return (null, null, false);
 
-            return (row.otp_hash, row.otp_expiry, row.is_verified == 1);
+            // ✅ Safe DBNull handling — Dapper dynamic + MySqlConnector
+            IDictionary<string, object> rowDict = (IDictionary<string, object>)row;
+
+            string? otpHash = rowDict.TryGetValue("otp_hash", out var hashVal)
+                              && hashVal != null && hashVal != DBNull.Value
+                              ? Convert.ToString(hashVal) : null;
+
+            DateTime? otpExpiry = rowDict.TryGetValue("otp_expiry", out var expiryVal)
+                                  && expiryVal != null && expiryVal != DBNull.Value
+                                  ? Convert.ToDateTime(expiryVal) : (DateTime?)null;
+
+            // TINYINT(1) returns bool or UInt64 depending on MySqlConnector — Convert.ToInt32 handles both
+            bool isVerified = rowDict.TryGetValue("is_verified", out var vVal)
+                              && vVal != null && vVal != DBNull.Value
+                              && Convert.ToInt32(vVal) == 1;
+
+            return (otpHash, otpExpiry, isVerified);
         }
 
         public async Task<bool> VerifyMobileAsync(string mobile)

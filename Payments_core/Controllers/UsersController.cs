@@ -415,24 +415,12 @@ namespace Payments_core.Controllers
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {
-            // Generate OTP
-            //string otp = await otpDataService.GenerateOtpAsync(request.UserId, request.Mobile);
+            // 1️⃣ Generate OTP (session-based, stored in login_otps)
             var (otp, sessionId) = await otpDataService.GenerateOtpAsync(request.UserId, request.Mobile);
+
+            // 2️⃣ Send OTP via SMS provider
             var msgConfig = await msgOtpService.GetMSGOTPConfigAsync();
             var result = await msgOtpService.MSG91SendOTPAsync(otp, request.Mobile, msgConfig.MSGOtpAuthKey, msgConfig.MSGOtpTemplateId, msgConfig.MSGUrl);
-
-
-            // 2️⃣ Hash OTPs
-           // string otpHash = BCrypt.Net.BCrypt.HashPassword(otp);
-
-            // 3️⃣ Expiry
-           // DateTime expiry = DateTime.UtcNow.AddMinutes(5);
-
-            // 4️⃣ Save hashed OTP
-           // await userDataService.SaveHashedOtpAsync(request.Mobile, otpHash, expiry);
-
-            // 5️⃣ Send OTP via SMS provider
-            // _smsService.Send(request.Mobile, otp);
 
             if (result)
             {
@@ -453,7 +441,7 @@ namespace Payments_core.Controllers
                 return Ok(new
                 {
                     message = "OTP could not be sent. Please try again.",
-                    
+
                 });
             }
         }
