@@ -16,25 +16,73 @@
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5086",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_CONNECTION_STRING": "server=103.86.177.87;database=finxdb;user=finxapp;password=9HK$$E%$TAST;Allow User Variables=true;",
+        "JWT_SECRET_KEY": "77df4148abebe875c2afd58627f1f17a5830264bb971de913d04a1c068a95632",
+        "JWT_ISSUER": "localhost",
+        "JWT_AUDIENCE": "localhost",
+        "FRONTEND_URL": "http://localhost:4200",
+        "WEBHOOK_URL": "https://your-ngrok-url/payments/callback",
+        "ALLOWED_HOSTS": "*",
+        "CASHFREE_BASE_URL": "https://sandbox.cashfree.com/verification",
+        "CASHFREE_DIGILOCKER_REDIRECT": "http://localhost:4200/auth/digilocker-callback",
+        "BILLAVENUE_BASE_URL": "https://stgapi.billavenue.com",
+        "BILLAVENUE_ACCESS_CODE": "AVWG94XR39HS99APZW",
+        "BILLAVENUE_WORKING_KEY": "CDA3824CFDBD9418C310CA0C3A352CE4",
+        "BILLAVENUE_INSTITUTE_ID": "MP98",
+        "BILLAVENUE_AGENT_ID": "CC01CC01513515340681",
+        "CASHFREE_WEBHOOK_SECRET": "dev-cashfree-secret",
+        "RAZORPAY_WEBHOOK_SECRET": "dev-razorpay-secret"
       }
     },
     "https": {
-        "commandName": "Project",
-        "dotnetRunMessages": true,
-        "launchBrowser": true,
-        "launchUrl": "swagger",
-        "applicationUrl": "https://localhost:44384;http://localhost:44383",
-        "environmentVariables": {
-            "ASPNETCORE_ENVIRONMENT": "Development"
-        }
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:44384;http://localhost:44383",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_CONNECTION_STRING": "server=103.86.177.87;database=finxdb;user=finxapp;password=9HK$$E%$TAST;Allow User Variables=true;",
+        "JWT_SECRET_KEY": "77df4148abebe875c2afd58627f1f17a5830264bb971de913d04a1c068a95632",
+        "JWT_ISSUER": "localhost",
+        "JWT_AUDIENCE": "localhost",
+        "FRONTEND_URL": "http://localhost:4200",
+        "WEBHOOK_URL": "https://your-ngrok-url/payments/callback",
+        "ALLOWED_HOSTS": "*",
+        "CASHFREE_BASE_URL": "https://sandbox.cashfree.com/verification",
+        "CASHFREE_DIGILOCKER_REDIRECT": "http://localhost:4200/auth/digilocker-callback",
+        "BILLAVENUE_BASE_URL": "https://stgapi.billavenue.com",
+        "BILLAVENUE_ACCESS_CODE": "AVWG94XR39HS99APZW",
+        "BILLAVENUE_WORKING_KEY": "CDA3824CFDBD9418C310CA0C3A352CE4",
+        "BILLAVENUE_INSTITUTE_ID": "MP98",
+        "BILLAVENUE_AGENT_ID": "CC01CC01513515340681",
+        "CASHFREE_WEBHOOK_SECRET": "dev-cashfree-secret",
+        "RAZORPAY_WEBHOOK_SECRET": "dev-razorpay-secret"
+      }
     },
     "IIS Express": {
       "commandName": "IISExpress",
       "launchBrowser": true,
       "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "DB_CONNECTION_STRING": "server=103.86.177.87;database=finxdb;user=finxapp;password=9HK$$E%$TAST;Allow User Variables=true;",
+        "JWT_SECRET_KEY": "77df4148abebe875c2afd58627f1f17a5830264bb971de913d04a1c068a95632",
+        "JWT_ISSUER": "localhost",
+        "JWT_AUDIENCE": "localhost",
+        "FRONTEND_URL": "http://localhost:4200",
+        "WEBHOOK_URL": "https://your-ngrok-url/payments/callback",
+        "ALLOWED_HOSTS": "*",
+        "CASHFREE_BASE_URL": "https://api.cashfree.com/verification",
+       "CASHFREE_DIGILOCKER_REDIRECT": "https://merchant.fastcashfnx.in/auth/digilocker-callback" , 
+        "BILLAVENUE_BASE_URL": "https://stgapi.billavenue.com",
+        "BILLAVENUE_ACCESS_CODE": "AVWG94XR39HS99APZW",
+        "BILLAVENUE_WORKING_KEY": "CDA3824CFDBD9418C310CA0C3A352CE4",
+        "BILLAVENUE_INSTITUTE_ID": "MP98",
+        "BILLAVENUE_AGENT_ID": "CC01CC01513515340681",
+        "CASHFREE_WEBHOOK_SECRET": "dev-cashfree-secret",
+        "RAZORPAY_WEBHOOK_SECRET": "dev-razorpay-secret"
       }
     }
   }

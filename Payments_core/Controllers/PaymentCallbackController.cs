@@ -18,7 +18,8 @@ namespace Payments_core.Controllers
         public PaymentCallbackController(
             IWalletService wallet,
             WebhookSignatureService signature,
-            AuditService audit, FailureService failure)
+            AuditService audit,
+            FailureService failure)
         {
             _wallet = wallet;
             _signature = signature;
@@ -32,19 +33,16 @@ namespace Payments_core.Controllers
             string payload;
             string requestId = "";
             string status = "";
+            string signatureHeader = "";
 
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
 
-            // ==============================
-            // Read Headers
-            // ==============================
+            // ── Read Headers ───────────────────────────────────────────────
             var headers = Request.Headers.ToDictionary(
                 h => h.Key,
                 h => h.Value.ToString());
 
-            // ==============================
-            // Read Payload
-            // ==============================
+            // ── Read Payload ───────────────────────────────────────────────
             using (var reader = new StreamReader(Request.Body))
             {
                 payload = await reader.ReadToEndAsync();
@@ -53,36 +51,29 @@ namespace Payments_core.Controllers
             if (string.IsNullOrWhiteSpace(payload))
                 return BadRequest("Empty payload");
 
-            // ==============================
-            // Detect Provider
-            // ==============================
+            // ── Detect Provider + Load Real Secret from Config ─────────────
             int providerId = 1;
             string secret = "";
-            string signatureHeader = "";
 
-            if (headers.TryGetValue("X-Cashfree-Signature", out signatureHeader))
+            if (headers.TryGetValue("X-Cashfree-Signature", out signatureHeader!))
             {
                 providerId = 2;
-                secret = "CASHFREE_WEBHOOK_SECRET";
+                secret = _signature.GetCashfreeSecret(); // reads from appsettings / env var
             }
-            else if (headers.TryGetValue("X-Razorpay-Signature", out signatureHeader))
+            else if (headers.TryGetValue("X-Razorpay-Signature", out signatureHeader!))
             {
                 providerId = 3;
-                secret = "RAZORPAY_WEBHOOK_SECRET";
+                secret = _signature.GetRazorpaySecret(); // reads from appsettings / env var
             }
 
-            // ==============================
-            // Signature Verification
-            // ==============================
+            // ── Signature Verification ─────────────────────────────────────
             if (!string.IsNullOrEmpty(secret))
             {
                 if (!_signature.VerifyHmac(payload, signatureHeader, secret))
                     return Unauthorized("Invalid webhook signature");
             }
 
-            // ==============================
-            // Parse JSON
-            // ==============================
+            // ── Parse JSON ─────────────────────────────────────────────────
             try
             {
                 var json = JsonDocument.Parse(payload);
@@ -104,9 +95,7 @@ namespace Payments_core.Controllers
             if (string.IsNullOrEmpty(status))
                 return BadRequest("status missing");
 
-            // ==============================
-            // Log Webhook
-            // ==============================
+            // ── Log Webhook ────────────────────────────────────────────────
             var logId = await _wallet.InsertWebhookLog(
                 providerId,
                 "PAYIN_CALLBACK",
@@ -115,12 +104,10 @@ namespace Payments_core.Controllers
 
             try
             {
-                // ==============================
-                // Fetch Transaction
-                // ==============================
+                // ── Fetch Transaction ──────────────────────────────────────
                 var txn = await _wallet.GetPgTransaction(requestId);
 
-                await _wallet.UpdateWebhookTxnLink( logId,txn?.id);
+                await _wallet.UpdateWebhookTxnLink(logId, txn?.id);
 
                 if (txn == null)
                 {
@@ -128,56 +115,37 @@ namespace Payments_core.Controllers
                     return NotFound("Transaction not found");
                 }
 
-                // ==============================
-                // Idempotency Check
-                // ==============================
+                // ── Idempotency Check ──────────────────────────────────────
                 if (txn.status == "SUCCESS")
                 {
                     await _wallet.UpdateWebhookStatus(logId, "IGNORED");
                     return Ok("Already processed");
                 }
 
-                // ==============================
-                // Update PG Status
-                // ==============================
-                await _wallet.UpdatePgTransactionStatus(
-                    requestId,
-                    status,
-                    payload);
+                // ── Update PG Status ───────────────────────────────────────
+                await _wallet.UpdatePgTransactionStatus(requestId, status, payload);
 
-                // ==============================
-                // Wallet Credit Protection
-                // ==============================
+                // ── Wallet Credit Protection ───────────────────────────────
                 if (status == "SUCCESS")
                 {
                     var credited = await _wallet.IsWalletCredited(requestId);
-
                     if (!credited)
                         await _wallet.ProcessPayinWalletCredit(requestId);
                 }
 
-                // ==============================
-                // Update Webhook Status
-                // ==============================
+                // ── Update Webhook Status ──────────────────────────────────
                 await _wallet.UpdateWebhookStatus(logId, "PROCESSED");
 
-                // ==============================
-                // Audit Log
-                // ==============================
+                // ── Audit Log ──────────────────────────────────────────────
                 await _audit.InsertAuditLog(
                     txn.created_by_user,
                     "PAYIN_CALLBACK",
                     "pg_transaction",
                     txn.id,
                     payload,
-                    ip
-                );
+                    ip);
 
-                return Ok(new
-                {
-                    success = true,
-                    requestId
-                });
+                return Ok(new { success = true, requestId });
             }
             catch (Exception ex)
             {
@@ -189,10 +157,12 @@ namespace Payments_core.Controllers
                     payload,
                     ex.Message);
 
+                // Generic message to client — never expose ex.Message in production
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "Callback processing failed. Please retry.",
+                    traceId = HttpContext.TraceIdentifier
                 });
             }
         }

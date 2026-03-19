@@ -9,6 +9,8 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+// Add this using at the top
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Payments_core.Controllers
 {
@@ -79,7 +81,7 @@ namespace Payments_core.Controllers
 
             return Ok(new { user_id = result, message = "Registered successfully" });
         }
-
+        [EnableRateLimiting("login")]
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] UserLoginRequest request)
@@ -185,7 +187,7 @@ namespace Payments_core.Controllers
                 session_id = sessionId
             });
         }
-
+        [EnableRateLimiting("otp")]
         [HttpPost("verify-otp")]
         [AllowAnonymous]
         public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
@@ -411,7 +413,7 @@ namespace Payments_core.Controllers
 
             return Ok(new { message = "TIN updated successfully" });
         }
-
+        [EnableRateLimiting("otp")]
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
         {

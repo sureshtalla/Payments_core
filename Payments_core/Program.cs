@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Payments_core.Integrations.Cashfree;
 using Payments_core.Models.Settings;
@@ -23,7 +24,7 @@ using Payments_core.Services.SuperDistributorService;
 using Payments_core.Services.UserDataService;
 using Payments_core.Services.WalletService;
 using System.Text;
-using Payments_core.Services.BankService;
+using System.Threading.RateLimiting;
 
 namespace Payments_core
 {
@@ -33,38 +34,109 @@ namespace Payments_core
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            // ── Read Environment Variables → override appsettings placeholders ─
+            void SetConfig(string envVar, string configKey)
+            {
+                var val = Environment.GetEnvironmentVariable(envVar);
+                if (!string.IsNullOrEmpty(val))
+                    builder.Configuration[configKey] = val;
+            }
+
+            SetConfig("DB_CONNECTION_STRING", "ConnectionStrings:SqlConnection");
+            SetConfig("JWT_SECRET_KEY", "JwtSettings:Key");
+            SetConfig("JWT_ISSUER", "JwtSettings:Issuer");
+            SetConfig("JWT_AUDIENCE", "JwtSettings:Audience");
+            SetConfig("FRONTEND_URL", "PaymentSettings:FrontendUrl");
+            SetConfig("WEBHOOK_URL", "PaymentSettings:WebhookUrl");
+            SetConfig("ALLOWED_HOSTS", "AllowedHosts");
+            SetConfig("CASHFREE_BASE_URL", "Cashfree:BaseUrl");
+            SetConfig("CASHFREE_DIGILOCKER_REDIRECT", "Cashfree:DigiLockerRedirectUrl");
+            SetConfig("BILLAVENUE_BASE_URL", "BillAvenue:BaseUrl");
+            SetConfig("BILLAVENUE_ACCESS_CODE", "BillAvenue:AccessCode");
+            SetConfig("BILLAVENUE_WORKING_KEY", "BillAvenue:WorkingKey");
+            SetConfig("BILLAVENUE_INSTITUTE_ID", "BillAvenue:InstituteId");
+            SetConfig("BILLAVENUE_AGENT_ID", "BillAvenue:AgentId");
+            SetConfig("CASHFREE_WEBHOOK_SECRET", "Webhook:CashfreeSecret");
+            SetConfig("RAZORPAY_WEBHOOK_SECRET", "Webhook:RazorpaySecret");
+            // ── End Environment Variables ──────────────────────────────────────
+
+            // ── Controllers & Swagger ──────────────────────────────────────────
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            // === DATA LAYER & SERVICES REGISTRATION ===
+            // ── CORS ───────────────────────────────────────────────────────────
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("FinxPolicy", policy =>
+                    policy.WithOrigins(
+                            "http://localhost:4200",
+                            "https://merchant.fastcashfnx.in",
+                            "https://www.fuzioniq.in",
+                            "https://fuzioniq.in"
+                          )
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials());
+            });
 
-            // Dapper context should be scoped (per request), not singleton
+            // ── Rate Limiting ──────────────────────────────────────────────────
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.AddSlidingWindowLimiter("login", opt =>
+                {
+                    opt.PermitLimit = 5;
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.SegmentsPerWindow = 2;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 0;
+                });
+
+                options.AddSlidingWindowLimiter("otp", opt =>
+                {
+                    opt.PermitLimit = 3;
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.SegmentsPerWindow = 2;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 0;
+                });
+
+                options.AddSlidingWindowLimiter("payment", opt =>
+                {
+                    opt.PermitLimit = 30;
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.SegmentsPerWindow = 4;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 0;
+                });
+
+                options.AddSlidingWindowLimiter("general", opt =>
+                {
+                    opt.PermitLimit = 120;
+                    opt.Window = TimeSpan.FromMinutes(1);
+                    opt.SegmentsPerWindow = 4;
+                    opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+                    opt.QueueLimit = 5;
+                });
+
+                options.RejectionStatusCode = 429;
+            });
+
+            // ── Data Layer & Services ──────────────────────────────────────────
             builder.Services.AddScoped<IDapperContext, DapperContext>();
-       
-
-            // Master data service
             builder.Services.AddScoped<IMasterDataService, MasterDataService>();
-
-            // User data service (this fixes your error)
             builder.Services.AddScoped<IUserDataService, UserDataService>();
-
-            // OTP service (needed for verify-otp endpoint)
             builder.Services.AddScoped<IOtpService, OtpService>();
             builder.Services.AddScoped<ISuperDistributorService, SuperDistributorService>();
             builder.Services.AddScoped<IMerchantDataService, MerchantDataService>();
             builder.Services.AddScoped<IPricingMDRDataService, PricingMDRDataService>();
             builder.Services.AddScoped<IMSG91OTPService, MSG91OTPService>();
-
             builder.Services.AddScoped<SuperDistributorService>();
 
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-            // BillAvenue service (BBPS)
             builder.Services.AddHttpClient<IBillAvenueClient, BillAvenueClient>();
             builder.Services.AddScoped<IBbpsService, BbpsService>();
-            //builder.Services.AddHostedService<BbpsStatusRequeryJob>();
             builder.Services.AddScoped<IWalletService, WalletService>();
             builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
             builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
@@ -73,7 +145,6 @@ namespace Payments_core
             builder.Services.AddScoped<ReconciliationService>();
             builder.Services.AddHostedService<ReconciliationJob>();
             builder.Services.AddScoped<AuditService>();
-
             builder.Services.AddScoped<IdempotencyService>();
             builder.Services.AddScoped<FailureService>();
             builder.Services.AddScoped<PgRetryService>();
@@ -81,44 +152,25 @@ namespace Payments_core
             builder.Services.AddScoped<MetricsService>();
 
             builder.Services.AddHttpClient();
-
             builder.Services.AddHttpClient<CashfreeGateway>();
             builder.Services.AddHttpClient<EasebuzzGateway>();
-
             builder.Services.AddScoped<IPaymentGateway, EasebuzzGateway>();
             builder.Services.AddScoped<IPaymentGateway, CashfreeGateway>();
-        
             builder.Services.AddScoped<IKycVerificationService, KycVerificationService>();
             builder.Services.AddScoped<KycApiCredentialService>();
             builder.Services.AddHttpClient<CashfreeVerificationClient>();
-
             builder.Services.AddScoped<PaymentRouterService>();
             builder.Services.AddScoped<IBankService, BankService>();
 
             builder.Services.Configure<PaymentSettings>(
-                        builder.Configuration.GetSection("PaymentSettings"));
+                builder.Configuration.GetSection("PaymentSettings"));
 
             builder.Services.Configure<FormOptions>(options =>
             {
                 options.MultipartBodyLengthLimit = 10 * 1024 * 1024;
             });
 
-            // === CORS ===
-            builder.Services.AddCors(options =>
-            {
-                options.AddPolicy("AllowRCPWClient", policy =>
-                {
-                    policy.WithOrigins(
-                            "http://localhost:4200",
-                            "https://merchant.fastcashfnx.in"
-                        )
-                        .AllowAnyMethod()
-                        .AllowAnyHeader()
-                        .AllowCredentials();
-                });
-            });
-
-            // (JWT config can stay commented for now if you’re not using it)
+            // ── JWT Authentication ─────────────────────────────────────────────
             builder.Services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -136,49 +188,63 @@ namespace Payments_core
                     ValidIssuer = jwtSettings["Issuer"],
                     ValidAudience = jwtSettings["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                     Encoding.UTF8.GetBytes(jwtSettings["Key"])
-                 ),
-                    ClockSkew = TimeSpan.Zero   // 🔥 IMPORTANT
+                                                 Encoding.UTF8.GetBytes(jwtSettings["Key"]!)),
+                    ClockSkew = TimeSpan.Zero
                 };
             });
 
+            // ── Build App ──────────────────────────────────────────────────────
             var app = builder.Build();
 
-            // Static files (if you serve anything from wwwroot)
-            app.UseStaticFiles();
+            // ── Security Headers ───────────────────────────────────────────────
+            app.Use(async (context, next) =>
+            {
+                context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+                context.Response.Headers.Append("X-Frame-Options", "DENY");
+                context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+                context.Response.Headers.Append("Referrer-Policy", "no-referrer");
 
-            // ✅ UPDATED: Return clean JSON for duplicates + real server errors
+                if (app.Environment.IsDevelopment())
+                {
+                    context.Response.Headers.Append(
+                        "Content-Security-Policy",
+                        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:");
+                }
+                else
+                {
+                    context.Response.Headers.Append(
+                        "Content-Security-Policy",
+                        "default-src 'self'; frame-ancestors 'none'");
+                }
+
+                if (!app.Environment.IsDevelopment())
+                {
+                    context.Response.Headers.Append(
+                        "Strict-Transport-Security",
+                        "max-age=31536000; includeSubDomains");
+                }
+
+                await next();
+            });
+
+            // ── Global Exception Handler ───────────────────────────────────────
             app.Use(async (context, next) =>
             {
                 try
                 {
-                    var requestId = context.TraceIdentifier;
-
-                    Console.WriteLine("----- INCOMING REQUEST -----");
-                    Console.WriteLine($"RequestId : {requestId}");
-                    Console.WriteLine($"Path      : {context.Request.Path}");
-                    Console.WriteLine($"Method    : {context.Request.Method}");
-
                     await next();
-
-                    Console.WriteLine($"Response Status : {context.Response.StatusCode}");
-                    Console.WriteLine("----- REQUEST END -----");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Unhandled Exception:");
-                    Console.WriteLine(ex);
-
-                    var rawMsg = (ex.InnerException?.Message ?? ex.Message ?? "").ToLowerInvariant();
+                    var rawMsg = (ex.InnerException?.Message ?? ex.Message ?? "")
+                                 .ToLowerInvariant();
 
                     int statusCode = StatusCodes.Status500InternalServerError;
                     string code = "SERVER_ERROR";
                     string message = "We couldn't complete your request right now. Please try again.";
                     string? field = null;
 
-                    // ✅ Detect duplicates and return 409 with exact field message
                     if (rawMsg.Contains("duplicate") ||
-                        rawMsg.Contains("duplicate entry") ||
                         rawMsg.Contains("already exists") ||
                         rawMsg.Contains("unique") ||
                         rawMsg.Contains("cannot insert duplicate key"))
@@ -187,32 +253,21 @@ namespace Payments_core
                         code = "DUPLICATE_ENTRY";
                         message = "This record already exists. Please use different details.";
 
-                        // Identify which field (based on error text / unique index name)
-                        if (rawMsg.Contains("pan") || rawMsg.Contains("uq_") && rawMsg.Contains("pan"))
+                        if (rawMsg.Contains("pan"))
                         {
-                            code = "DUPLICATE_PAN";
-                            message = "PAN number already exists.";
-                            field = "pan";
+                            code = "DUPLICATE_PAN"; message = "PAN number already exists."; field = "pan";
                         }
-                        else if (rawMsg.Contains("aadhaar") || rawMsg.Contains("aadhar") ||
-                                 rawMsg.Contains("uq_") && (rawMsg.Contains("aadhaar") || rawMsg.Contains("aadhar")))
+                        else if (rawMsg.Contains("aadhaar") || rawMsg.Contains("aadhar"))
                         {
-                            code = "DUPLICATE_AADHAAR";
-                            message = "Aadhaar number already exists.";
-                            field = "aadhaar";
+                            code = "DUPLICATE_AADHAAR"; message = "Aadhaar number already exists."; field = "aadhaar";
                         }
-                        else if (rawMsg.Contains("email") || rawMsg.Contains("uq_") && rawMsg.Contains("email"))
+                        else if (rawMsg.Contains("email"))
                         {
-                            code = "DUPLICATE_EMAIL";
-                            message = "Email already exists.";
-                            field = "email";
+                            code = "DUPLICATE_EMAIL"; message = "Email already exists."; field = "email";
                         }
-                        else if (rawMsg.Contains("mobile") || rawMsg.Contains("phone") || rawMsg.Contains("contact") ||
-                                 rawMsg.Contains("uq_") && rawMsg.Contains("mobile"))
+                        else if (rawMsg.Contains("mobile") || rawMsg.Contains("phone"))
                         {
-                            code = "DUPLICATE_MOBILE";
-                            message = "Mobile number already exists.";
-                            field = "mobile";
+                            code = "DUPLICATE_MOBILE"; message = "Mobile number already exists."; field = "mobile";
                         }
                     }
 
@@ -230,17 +285,17 @@ namespace Payments_core
                 }
             });
 
+            // ── Swagger — DEV ONLY ─────────────────────────────────────────────
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
 
-            app.UseCors("AllowRCPWClient");
-
+            app.UseStaticFiles();
             app.UseHttpsRedirection();
-
-            // Enable Authorization middleware
+            app.UseCors("FinxPolicy");
+            app.UseRateLimiter();
             app.UseAuthentication();
             app.UseAuthorization();
             app.MapControllers();
