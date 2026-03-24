@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest   # ✅ FIXED
 
     steps:
     - name: Checkout
@@ -20,19 +20,17 @@ jobs:
     - name: Publish Project
       run: dotnet publish ./Payments_core/Payments_core.csproj -c Release -o publish
 
-    # ✅ DEBUG STEP (VERY IMPORTANT)
     - name: Check publish folder
-      run: dir publish
+      run: ls -la publish
 
-    # ✅ FIXED COPY (IMPORTANT CHANGE)
     - name: Upload to VPS
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.SERVER_IP }}
         username: ${{ secrets.SERVER_USER }}
         password: ${{ secrets.SERVER_PASSWORD }}
-        source: "publish"
-        target: "C:/deploy"
+        source: "publish/*"
+        target: "C:/deploy/api"
 
     - name: Run Deploy Script
       uses: appleboy/ssh-action@master
