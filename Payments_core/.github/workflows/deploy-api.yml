@@ -20,23 +20,15 @@ jobs:
     - name: Publish Project
       run: dotnet publish ./Payments_core/Payments_core.csproj -c Release -o publish
 
-    - name: Verify publish output
-      run: ls -la publish
+    - name: Install sshpass
+      run: sudo apt-get install sshpass -y
 
+    # ✅ DIRECT SCP (NO appleboy)
     - name: Upload to VPS
-      uses: appleboy/scp-action@master
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        source: "publish/"
-        target: "C:/deploy"
+      run: |
+        sshpass -p "${{ secrets.SERVER_PASSWORD }}" scp -o StrictHostKeyChecking=no -r publish/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }}:/c:/deploy/publish/
 
+    # ✅ RUN DEPLOY SCRIPT
     - name: Run Deploy Script
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ${{ secrets.SERVER_USER }}
-        password: ${{ secrets.SERVER_PASSWORD }}
-        script: |
-          powershell -ExecutionPolicy Bypass -File C:\deploy\deploy.ps1
+      run: |
+        sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_IP }} "powershell -ExecutionPolicy Bypass -File C:\deploy\deploy.ps1"
