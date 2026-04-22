@@ -69,7 +69,7 @@ namespace Payments_core.Integrations.Cashfree
             return await HandleResponse(response);
         }
 
-        // ── BANK ─────────────────────────────────────────────────────────
+        // ── BANK ────────────────────────────────────────────
         // GET /bank-account?bank_account=&ifsc=&name=&reference_id=
         public async Task<dynamic> VerifyBank(string account, string ifsc, string name)
         {
