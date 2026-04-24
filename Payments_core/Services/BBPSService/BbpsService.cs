@@ -30,7 +30,7 @@ namespace Payments_core.Services.BBPSService
             IBbpsRepository repo,
             IWalletService wallet,
             IUserDataService userDataService,
-             IMSG91OTPService msgService)
+            IMSG91OTPService msgService)
         {
             _cfg = cfg;
             _client = client;
@@ -41,7 +41,7 @@ namespace Payments_core.Services.BBPSService
         }
 
         // ---------------------------------------------------------
-        // FETCH BILL (FINAL CORRECT STRUCTURE)
+        // FETCH BILL
         // ---------------------------------------------------------
         public async Task<BbpsFetchResponseDto> FetchBill(
             long userId,
@@ -57,22 +57,12 @@ namespace Payments_core.Services.BBPSService
 
             try
             {
-                // -------------------------------
-                // Ensure customerInfo
-                // -------------------------------
                 if (customerInfo == null)
-                {
                     customerInfo = new CustomerInfo();
-                }
 
                 if (string.IsNullOrWhiteSpace(customerInfo.CustomerMobile))
-                {
-                    customerInfo.CustomerMobile = "8004480444"; // UAT fallback
-                }
+                    customerInfo.CustomerMobile = "8004480444";
 
-                // -------------------------------
-                // Build XML
-                // -------------------------------
                 string xml = BillAvenueXmlBuilder.BuildFetchBillXml(
                     cfg["InstituteId"],
                     cfg["AgentId"],
@@ -83,57 +73,53 @@ namespace Payments_core.Services.BBPSService
                     customerInfo
                 );
 
-                string encRequest =
-                    BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
-
+                string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
                 var form = BuildCommonForm(cfg, requestId, encRequest);
 
                 string rawResponse = await _client.PostFormAsync(
-                    cfg["BaseUrl"] + cfg["FetchUrl"],
-                    form
-                );
+                    cfg["BaseUrl"] + cfg["FetchUrl"], form);
 
-                string decryptedXml =
-                    BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+                string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-                // -------------------------------
-                // Parse FULL STRUCTURE
-                // -------------------------------
-                var parsed =
-                    BillAvenueXmlParser.ParseFetch(decryptedXml);
-
-                parsed.RequestId = requestId;
-
-                // ===============================
-                // 🔥 DEBUG + VALIDATION (NEW)
-                // ===============================
                 Console.WriteLine("===== FETCH DECRYPTED XML =====");
                 Console.WriteLine(decryptedXml);
+
+                var parsed = BillAvenueXmlParser.ParseFetch(decryptedXml);
+                parsed.RequestId = requestId;
 
                 Console.WriteLine("Parsed.ResponseCode = " + parsed.ResponseCode);
 
                 if (string.IsNullOrEmpty(parsed.ResponseCode))
+                    throw new Exception("BillAvenue responseCode missing in Fetch response.");
+
+                // ✅ FIX: Safe decimal parse for BillAmount
+                decimal safeBillAmount = 0;
+                if (!string.IsNullOrWhiteSpace(parsed.BillerResponse?.BillAmount))
+                    decimal.TryParse(parsed.BillerResponse.BillAmount, out safeBillAmount);
+
+                // ✅ FIX: Safe DateTime parse for DueDate
+                DateTime? safeDueDate = null;
+                if (!string.IsNullOrWhiteSpace(parsed.BillerResponse?.DueDate))
                 {
-                    throw new Exception(
-                        "BillAvenue responseCode missing in Fetch response. Check decrypted XML."
-                    );
+                    if (DateTime.TryParse(parsed.BillerResponse.DueDate, out var parsedDate))
+                        safeDueDate = parsedDate;
                 }
 
-                // -------------------------------
-                // Persist minimal fields only
-                // -------------------------------
+                // ✅ FIX: Safe customer name
+                string safeCustomerName = parsed.BillerResponse?.CustomerName ?? "";
+
                 await _repo.SaveFetchBill(
                     requestId,
-                    parsed.BillRequestId,
+                    parsed.BillRequestId ?? "",
                     userId,
                     cfg["AgentId"],
                     billerId,
                     await _repo.GetBillerCategory(billerId),
-                    parsed.CustomerName,
+                    safeCustomerName,
                     null,
                     null,
-                    parsed.BillAmount,
-                    parsed.DueDate == DateTime.MinValue ? null : parsed.DueDate,
+                    safeBillAmount,
+                    safeDueDate,
                     parsed.ResponseCode,
                     parsed.ResponseMessage,
                     decryptedXml
@@ -141,15 +127,12 @@ namespace Payments_core.Services.BBPSService
 
                 Console.WriteLine($"[BBPS][FETCH][END] RequestId={requestId}, ResponseCode={parsed.ResponseCode}");
 
-                // 🔥 RETURN COMPLETE OBJECT (CRITICAL FIX)
                 return new BbpsFetchResponseDto
                 {
                     ResponseCode = parsed.ResponseCode,
                     ResponseMessage = parsed.ResponseMessage,
                     RequestId = requestId,
                     BillRequestId = parsed.BillRequestId,
-
-                    // 🔥 IMPORTANT — RAW STRUCTURE FOR PAY
                     InputParams = parsed.InputParams,
                     BillerResponse = parsed.BillerResponse,
                     AdditionalInfo = parsed.AdditionalInfo
@@ -162,20 +145,18 @@ namespace Payments_core.Services.BBPSService
             }
         }
 
+        // ---------------------------------------------------------
+        // VALIDATE BILL
+        // ---------------------------------------------------------
         public async Task<BbpsBillValidationResponseDto> ValidateBill(
-        string billerId,
-        Dictionary<string, string> inputParams)
+            string billerId,
+            Dictionary<string, string> inputParams)
         {
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
-            string xml = BillAvenueXmlBuilder.BuildBillValidationXml(
-                billerId,
-                inputParams
-            );
-
-            string encRequest =
-                BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+            string xml = BillAvenueXmlBuilder.BuildBillValidationXml(billerId, inputParams);
+            string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
             string url =
                 $"{cfg["BaseUrl"]}/billpay/extBillValCntrl/billValidationRequest/xml" +
@@ -184,276 +165,209 @@ namespace Payments_core.Services.BBPSService
                 $"&ver=2.0" +
                 $"&instituteId={cfg["InstituteId"]}";
 
-            string rawResponse =
-                await _client.PostRawAsync(
-                    url,
-                    encRequest,
-                    "text/plain"
-                );
-
-            string decryptedXml =
-                BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+            string rawResponse = await _client.PostRawAsync(url, encRequest, "text/plain");
+            string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
             return BillAvenueXmlParser.ParseBillValidation(decryptedXml);
         }
 
         // ---------------------------------------------------------
-        // PAY BILL (NPCI READY – ADHOC + REGULAR SUPPORTED)
+        // PAY BILL
         // ---------------------------------------------------------
-       public async Task<BbpsPayResponseDto> PayBill(
-        long userId,
-        string billerId,
-        string? billRequestId,
-        Dictionary<string, string>? inputParams,
-        JsonElement? billerResponse,
-         JsonElement? AdditionalInfo,
-        decimal amount,
-        string amountTag,
-        string tpin,
-        string customerMobile,
-        string requestId
-    )
-{
-    string walletTxnId = string.Empty;
-
-    try
-    {
-        // --------------------------------------------------
-        // BASIC VALIDATION
-        // --------------------------------------------------
-        if (string.IsNullOrWhiteSpace(tpin))
-            throw new ApplicationException("TPIN is required");
-
-        var isValidTpin = await _userDataService.ValidateUserTpin(userId, tpin);
-        if (!isValidTpin)
-            throw new ApplicationException("Invalid TPIN");
-
-        if (string.IsNullOrWhiteSpace(customerMobile))
-            throw new ApplicationException("Customer mobile is required");
-
-        var biller = await _repo.GetBillerById(billerId);
-        if (biller == null)
-            throw new ApplicationException("Invalid Biller");
-
-        bool isAdhoc = biller.SupportsAdhoc == 1;
-        Console.WriteLine($"IsAdhoc (DB Based) = {isAdhoc}");
-
-        var cfg = _cfg.GetSection("BillAvenue");
-
-        long amountInPaise = (long)amount;
-
-        // ==========================================================
-        // 🔥 SAFE AMOUNT VALIDATION (ARRAY + OBJECT SUPPORTED)
-        // ==========================================================
-
-        long fetchAmount = 0;
-
-        if (billerResponse != null)
+        public async Task<BbpsPayResponseDto> PayBill(
+            long userId,
+            string billerId,
+            string? billRequestId,
+            Dictionary<string, string>? inputParams,
+            JsonElement? billerResponse,
+            JsonElement? AdditionalInfo,
+            decimal amount,
+            string amountTag,
+            string tpin,
+            string customerMobile,
+            string requestId)
         {
-            var json = billerResponse.Value;
+            string walletTxnId = string.Empty;
 
-            if (!string.IsNullOrWhiteSpace(amountTag) &&
-                json.TryGetProperty("amountOptions", out var amountOptions))
+            try
             {
-                JsonElement optionsArray;
+                if (string.IsNullOrWhiteSpace(tpin))
+                    throw new ApplicationException("TPIN is required");
 
-                // Case 1: amountOptions is { option: [...] }
-                if (amountOptions.ValueKind == JsonValueKind.Object &&
-                    amountOptions.TryGetProperty("option", out optionsArray))
+                var isValidTpin = await _userDataService.ValidateUserTpin(userId, tpin);
+                if (!isValidTpin)
+                    throw new ApplicationException("Invalid TPIN");
+
+                if (string.IsNullOrWhiteSpace(customerMobile))
+                    throw new ApplicationException("Customer mobile is required");
+
+                var biller = await _repo.GetBillerById(billerId);
+                if (biller == null)
+                    throw new ApplicationException("Invalid Biller");
+
+                bool isAdhoc = biller.SupportsAdhoc == 1;
+                Console.WriteLine($"IsAdhoc (DB Based) = {isAdhoc}");
+
+                var cfg = _cfg.GetSection("BillAvenue");
+                long amountInPaise = (long)amount;
+
+                // ✅ Safe amount validation
+                long fetchAmount = 0;
+
+                if (billerResponse != null)
                 {
-                    foreach (var option in optionsArray.EnumerateArray())
-                    {
-                        var tagName = option.GetProperty("amountName").GetString();
-                        var tagValue = option.GetProperty("amountValue").GetString();
+                    var json = billerResponse.Value;
 
-                        if (string.Equals(tagName, amountTag, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrWhiteSpace(amountTag) &&
+                        json.TryGetProperty("amountOptions", out var amountOptions))
+                    {
+                        JsonElement optionsArray;
+
+                        if (amountOptions.ValueKind == JsonValueKind.Object &&
+                            amountOptions.TryGetProperty("option", out optionsArray))
                         {
-                            fetchAmount = long.Parse(tagValue);
-                            break;
+                            foreach (var option in optionsArray.EnumerateArray())
+                            {
+                                var tagName = option.GetProperty("amountName").GetString();
+                                var tagValue = option.GetProperty("amountValue").GetString();
+                                if (string.Equals(tagName, amountTag, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    fetchAmount = long.Parse(tagValue);
+                                    break;
+                                }
+                            }
+                        }
+                        else if (amountOptions.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var option in amountOptions.EnumerateArray())
+                            {
+                                var tagName = option.GetProperty("amountName").GetString();
+                                var tagValue = option.GetProperty("amountValue").GetString();
+                                if (string.Equals(tagName, amountTag, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    fetchAmount = long.Parse(tagValue);
+                                    break;
+                                }
+                            }
                         }
                     }
-                }
-                // Case 2: amountOptions is directly an array
-                else if (amountOptions.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var option in amountOptions.EnumerateArray())
-                    {
-                        var tagName = option.GetProperty("amountName").GetString();
-                        var tagValue = option.GetProperty("amountValue").GetString();
 
-                        if (string.Equals(tagName, amountTag, StringComparison.OrdinalIgnoreCase))
-                        {
-                            fetchAmount = long.Parse(tagValue);
-                            break;
-                        }
+                    // Fallback to billAmount
+                    if (fetchAmount == 0 && json.TryGetProperty("billAmount", out var billAmt))
+                    {
+                        var billAmtStr = billAmt.ToString();
+                        if (!string.IsNullOrWhiteSpace(billAmtStr))
+                            long.TryParse(billAmtStr, out fetchAmount);
                     }
                 }
-            }
 
-            // Fallback to billAmount
-            if (fetchAmount == 0 &&
-                json.TryGetProperty("billAmount", out var billAmt))
-            {
-                fetchAmount = long.Parse(billAmt.ToString());
-            }
-        }
+                if (fetchAmount != amountInPaise)
+                    throw new ApplicationException(
+                        $"Amount mismatch. Fetch={fetchAmount}, Pay={amountInPaise}");
 
-        if (fetchAmount != amountInPaise)
-        {
-            throw new ApplicationException(
-                $"Amount mismatch. Fetch={fetchAmount}, Pay={amountInPaise}"
-            );
-        }
+                var deviceInfo = new AgentDeviceInfo
+                {
+                    Ip = "192.168.2.73",
+                    InitChannel = "AGT",
+                    Mac = "01-23-45-67-89-ab"
+                };
 
-        // --------------------------------------------------
-        // DEVICE INFO
-        // --------------------------------------------------
-        var deviceInfo = new AgentDeviceInfo
-        {
-            Ip = "192.168.2.73",
-            InitChannel = "AGT",
-            Mac = "01-23-45-67-89-ab"
-        };
+                string xml;
 
-        string xml;
+                if (isAdhoc)
+                {
+                    if (inputParams == null || billerResponse == null)
+                        throw new ApplicationException("Adhoc payment requires inputParams & billerResponse");
 
-        // --------------------------------------------------
-        // BUILD XML
-        // --------------------------------------------------
-        if (isAdhoc)
-        {
-            if (inputParams == null || billerResponse == null)
-                throw new ApplicationException("Adhoc payment requires inputParams & billerResponse");
-
-            xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
-                cfg["InstituteId"],
-                requestId,
-                cfg["AgentId"],
-                billerId,
-                inputParams,
-                billerResponse.Value,
-                  AdditionalInfo,
-                amountInPaise,
-                amountTag,
-                customerMobile,
-                deviceInfo
-            );
-        }
-        else
-        {
-            if (string.IsNullOrWhiteSpace(billRequestId))
-                throw new ApplicationException("billRequestId is required for regular payment");
+                    xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
+                        cfg["InstituteId"],
+                        requestId,
+                        cfg["AgentId"],
+                        billerId,
+                        inputParams,
+                        billerResponse.Value,
+                        AdditionalInfo,
+                        amountInPaise,
+                        amountTag,
+                        customerMobile,
+                        deviceInfo
+                    );
+                }
+                else
+                {
+                    if (string.IsNullOrWhiteSpace(billRequestId))
+                        throw new ApplicationException("billRequestId is required for regular payment");
 
                     xml = BillAvenueXmlBuilder.BuildRegularPayXml(
-                    cfg["AgentId"],
-                    billRequestId,
-                    requestId,
-                    amountInPaise,
-                    customerMobile,
-                    deviceInfo
+                        cfg["AgentId"],
+                        billRequestId,
+                        requestId,
+                        amountInPaise,
+                        customerMobile,
+                        deviceInfo
                     );
                 }
 
-        Console.WriteLine("---------- PAY XML ----------");
-        Console.WriteLine(xml);
+                Console.WriteLine("---------- PAY XML ----------");
+                Console.WriteLine(xml);
 
-                // --------------------------------------------------
-                // HOLD WALLET
-                // --------------------------------------------------
                 walletTxnId = await _wallet.HoldAsync(
-                                                        userId,
-                                                        amount,
-                                                        "BBPS",
-                                                        requestId,
-                                                        "BBPS Bill Payment");
+                    userId, amount, "BBPS", requestId, "BBPS Bill Payment");
 
-        string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+                string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-        var form = new Dictionary<string, string>
-        {
-            { "accessCode", cfg["AccessCode"] },
-            { "requestId", requestId },
-            { "ver", cfg["Version"] },
-            { "instituteId", cfg["InstituteId"] },
-            { "encRequest", encRequest }
-        };
+                var form = new Dictionary<string, string>
+                {
+                    { "accessCode", cfg["AccessCode"] },
+                    { "requestId", requestId },
+                    { "ver", cfg["Version"] },
+                    { "instituteId", cfg["InstituteId"] },
+                    { "encRequest", encRequest }
+                };
 
-        string rawResponse = await _client.PostFormAsync(
-            cfg["BaseUrl"] + cfg["PayUrl"],
-            form
-        );
+                string rawResponse = await _client.PostFormAsync(
+                    cfg["BaseUrl"] + cfg["PayUrl"], form);
 
-        string decryptedXml =
-            BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+                string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-        Console.WriteLine("---------- PAY RESPONSE ----------");
-        Console.WriteLine(decryptedXml);
+                Console.WriteLine("---------- PAY RESPONSE ----------");
+                Console.WriteLine(decryptedXml);
 
-        var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
-
-                //    await _repo.SavePayment(
-                //    requestId,
-                //    billRequestId ?? requestId,
-                //    dto.TxnRefId,
-                //    userId,
-                //    amount,
-                //    "PENDING",   // 🔥 FORCE PENDING
-                //    dto.ResponseCode,
-                //    dto.ResponseMessage,
-                //    decryptedXml
-                //); 
+                var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
 
                 await _repo.SavePayment(
-                requestId,
-                billRequestId ?? "",
-                dto.TxnRefId,
-                userId,
-                amount,
-                dto.Status,
-                dto.ResponseCode,
-                dto.ResponseMessage,
-                billerId,                                   // 🔥 ADD
-                biller.BillerName ?? "",                    // 🔥 ADD
-                "Cash",                                     // 🔥 ADD (or dynamic if needed)
-                decryptedXml
+                    requestId,
+                    billRequestId ?? "",
+                    dto.TxnRefId,
+                    userId,
+                    amount,
+                    dto.Status,
+                    dto.ResponseCode,
+                    dto.ResponseMessage,
+                    billerId,
+                    biller.BillerName ?? "",
+                    "Cash",
+                    decryptedXml
                 );
 
-                // --------------------------------------------------
-                // WALLET FINALIZATION
-                // --------------------------------------------------
                 if (dto.Status == "SUCCESS")
                     await _wallet.FinalizeAsync(
-                                             userId,
-                                             amount,
-                                             "BBPS",
-                                             requestId,
-                                             walletTxnId,
-                                             "BBPS Success");
+                        userId, amount, "BBPS", requestId, walletTxnId, "BBPS Success");
                 else
                     await _wallet.ReleaseAsync(
-                                            userId,
-                                            amount,
-                                            "BBPS",
-                                            requestId,
-                                            walletTxnId,
-                                            "BBPS Failed");
+                        userId, amount, "BBPS", requestId, walletTxnId, "BBPS Failed");
 
                 return dto;
-    }
+            }
             catch
             {
                 if (!string.IsNullOrEmpty(walletTxnId))
                     await _wallet.ReleaseAsync(
-                        userId,
-                        amount,
-                        "BBPS",
-                        requestId,
-                        walletTxnId,
-                        "BBPS Payment Exception");
-
+                        userId, amount, "BBPS", requestId, walletTxnId, "BBPS Payment Exception");
                 throw;
             }
         }
+
         // ---------------------------------------------------------
         // STATUS
         // ---------------------------------------------------------
@@ -464,104 +378,52 @@ namespace Payments_core.Services.BBPSService
         {
             var cfg = _cfg.GetSection("BillAvenue");
 
-            // 1️⃣ Build XML
             string xml = BillAvenueXmlBuilder.BuildStatusXmlByTxnRef(
-                cfg["InstituteId"],
-                requestId,
-                txnRefId
-            );
+                cfg["InstituteId"], requestId, txnRefId);
 
-            // 2️⃣ Encrypt
-            string encRequest =
-                BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
+            string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
             var form = new Dictionary<string, string>
-    {
-        { "accessCode", cfg["AccessCode"] },
-        { "requestId", requestId },
-        { "ver", cfg["Version"] },
-        { "instituteId", cfg["InstituteId"] },
-        { "encRequest", encRequest }
-    };
+            {
+                { "accessCode", cfg["AccessCode"] },
+                { "requestId", requestId },
+                { "ver", cfg["Version"] },
+                { "instituteId", cfg["InstituteId"] },
+                { "encRequest", encRequest }
+            };
 
-            // 3️⃣ Call Status API
             string rawResponse = await _client.PostFormAsync(
-                cfg["BaseUrl"] + cfg["StatusUrl"],
-                form
-            );
+                cfg["BaseUrl"] + cfg["StatusUrl"], form);
 
-            // 4️⃣ Decrypt
-            string decryptedXml =
-                BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+            string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
             Console.WriteLine("===== STATUS DECRYPTED XML =====");
             Console.WriteLine(decryptedXml);
 
             var dto = BillAvenueXmlParser.ParseStatus(decryptedXml);
 
-            // ---------------------------------------------------------
-            // 🔥 STRICT STATUS NORMALIZATION
-            // ---------------------------------------------------------
-
             dto.Status = dto.Status?.Trim().ToUpper();
 
             if (string.IsNullOrWhiteSpace(dto.Status))
             {
-                // STG sometimes returns responseCode only
-                if (dto.ResponseCode == "000" &&
-                    !string.IsNullOrWhiteSpace(dto.TxnRefId))
-                {
+                if (dto.ResponseCode == "000" && !string.IsNullOrWhiteSpace(dto.TxnRefId))
                     dto.Status = "SUCCESS";
-                }
                 else if (dto.ResponseCode == "000")
-                {
                     dto.Status = "PENDING";
-                }
                 else
-                {
                     dto.Status = "FAILED";
-                }
             }
 
-            // Safety: ensure only valid states returned
-            if (dto.Status != "SUCCESS" &&
-                dto.Status != "FAILED" &&
-                dto.Status != "PENDING")
-            {
+            if (dto.Status != "SUCCESS" && dto.Status != "FAILED" && dto.Status != "PENDING")
                 dto.Status = "PENDING";
-            }
 
-            // ---------------------------------------------------------
-            // 5️⃣ Update DB
-            // ---------------------------------------------------------
-            await _repo.UpdateStatus(
-                txnRefId,
-                billRequestId,
-                dto.Status,
-                decryptedXml
-            );
+            await _repo.UpdateStatus(txnRefId, billRequestId, dto.Status, decryptedXml);
+            await _repo.UpdatePaymentStatus(txnRefId, dto.Status);
 
-            // 🔥 ALSO UPDATE PAYMENT TABLE
-            await _repo.UpdatePaymentStatus(
-                txnRefId,
-                dto.Status
-            );
-
-            // ---------------------------------------------------------
-            // 6️⃣ Wallet Finalization
-            // ---------------------------------------------------------
             if (dto.Status == "SUCCESS")
-            {
                 await _wallet.FinalizeIfPending(txnRefId);
-            }
             else if (dto.Status == "FAILED")
-            {
                 await _wallet.RefundIfPending(txnRefId);
-            }
-
-            // ===================================================
-            // ✅ SEND PAYMENT SMS (SUCCESS / FAILED)
-            // ===================================================
 
             if (dto.Status == "SUCCESS" || dto.Status == "FAILED")
             {
@@ -581,44 +443,40 @@ namespace Payments_core.Services.BBPSService
 
                             string mobile = user.Mobile.Trim();
                             string paymentMode = string.IsNullOrWhiteSpace(payment.PaymentMode)
-                                ? "Cash"
-                                : payment.PaymentMode;
+                                ? "Cash" : payment.PaymentMode;
 
-                            // ===============================
-                            // 🔥 EXTRACT CONSUMER NO FROM XML
-                            // ===============================
                             string consumerNo = "";
-
                             if (!string.IsNullOrWhiteSpace(payment.RawFetchXml))
                             {
-                                var doc = XDocument.Parse(payment.RawFetchXml);
-
-                                consumerNo = doc.Descendants("input")
-                                    .Where(x => x.Element("paramName")?.Value == "Consumer No")
-                                    .Select(x => x.Element("paramValue")?.Value)
-                                    .FirstOrDefault() ?? "";
+                                try
+                                {
+                                    var doc = XDocument.Parse(payment.RawFetchXml);
+                                    consumerNo = doc.Descendants("input")
+                                        .Where(x => x.Element("paramName")?.Value == "Consumer No")
+                                        .Select(x => x.Element("paramValue")?.Value)
+                                        .FirstOrDefault() ?? "";
+                                }
+                                catch { }
                             }
 
                             Console.WriteLine("ConsumerNo: " + consumerNo);
 
                             bool smsResult = await _msgService.SendPaymentTemplateSmsAsync(
-                              mobile,
-                              payment.Amount,
-                              payment.BillerName,
-                              consumerNo,
-                              txnRefId,
-                              paymentMode,
-                              msgConfig.MSGOtpAuthKey,
-                              msgConfig.MSGPAYMENTSUCCESS,
-                              msgConfig.MSGUrl
-                          );
+                                mobile,
+                                payment.Amount,
+                                payment.BillerName,
+                                consumerNo,
+                                txnRefId,
+                                paymentMode,
+                                msgConfig.MSGOtpAuthKey,
+                                msgConfig.MSGPAYMENTSUCCESS,
+                                msgConfig.MSGUrl
+                            );
 
                             Console.WriteLine($"SMS Result: {smsResult}");
 
                             if (smsResult)
-                            {
                                 await _repo.MarkSmsSent(txnRefId);
-                            }
                         }
 
                         Console.WriteLine("========== BBPS PAYMENT SMS END ==========");
@@ -632,20 +490,21 @@ namespace Payments_core.Services.BBPSService
 
             return dto;
         }
+
         // ---------------------------------------------------------
         // SYNC BILLERS (MDM)
         // ---------------------------------------------------------
         public async Task SyncBillers()
         {
             var cfg = _cfg.GetSection("BillAvenue");
-
-            var billerIds = (await _repo.GetActiveBillerIds("STG")).ToList();
+            var bbpsEnv = cfg["InstituteId"] == "HP59" ? "PROD" : "STG";
+            var billerIds = (await _repo.GetActiveBillerIds(bbpsEnv)).ToList();
 
             Console.WriteLine($"🔎 MDM-ELIGIBLE BILLERS = {billerIds.Count}");
 
             if (!billerIds.Any())
             {
-                Console.WriteLine("ℹ️ No MDM-supported billers in STG (expected for sandbox)");
+                Console.WriteLine($"ℹ️ No MDM-supported billers in {bbpsEnv} catalog.");
                 return;
             }
 
@@ -666,11 +525,7 @@ namespace Payments_core.Services.BBPSService
                     $"&ver={cfg["Version"]}" +
                     $"&instituteId={cfg["InstituteId"]}";
 
-                string rawResponse = await _client.PostRawAsync(
-                    url,
-                    encRequest,
-                    "text/xml"
-                );
+                string rawResponse = await _client.PostRawAsync(url, encRequest, "text/xml");
 
                 string decryptedXml =
                     BillAvenueCrypto.LooksLikeHex(rawResponse)
@@ -684,7 +539,6 @@ namespace Payments_core.Services.BBPSService
                 }
 
                 var billers = BillAvenueXmlParser.ParseBillerInfo(decryptedXml);
-
                 foreach (var biller in billers)
                 {
                     await _repo.UpsertBiller(biller);
@@ -697,25 +551,37 @@ namespace Payments_core.Services.BBPSService
             Console.WriteLine($"✅ MDM Sync Done | Success={success}, Failed={failed.Count}");
         }
 
-
+        // ---------------------------------------------------------
+        // GET BILLERS BY CATEGORY
+        // ---------------------------------------------------------
         public async Task<IEnumerable<BbpsBillerListDto>> GetBillersByCategory(string category)
         {
             return await _repo.GetBillersByCategory(category);
         }
 
-
+        // ---------------------------------------------------------
+        // GET BILLER PARAMS
+        // ---------------------------------------------------------
         public async Task<List<BbpsBillerInputParamDto>> GetBillerParams(string billerId)
         {
+            // Step 1: Check DB first
+            var dbParams = await _repo.GetBillerParamsFromDb(billerId);
+
+            if (dbParams != null && dbParams.Any())
+            {
+                Console.WriteLine($"[MDM] Returning params from DB for {billerId}");
+                return dbParams;
+            }
+
+            // Step 2: Call live MDM API
+            Console.WriteLine($"[MDM] DB miss - calling live MDM for {billerId}");
+
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.GenerateForMDM();
 
-            // 1️⃣ XML
             string xml = BillAvenueXmlBuilder.BuildBillerParamsRequestXml(billerId);
-
-            // 2️⃣ Encrypt (MDM style)
             string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-            // 3️⃣ URL — EXACTLY LIKE BILLAVENUE CURL
             string url =
                 $"{cfg["BaseUrl"]}{cfg["MdmUrl"]}" +
                 $"?accessCode={cfg["AccessCode"]}" +
@@ -723,85 +589,58 @@ namespace Payments_core.Services.BBPSService
                 $"&ver={cfg["Version"]}" +
                 $"&instituteId={cfg["InstituteId"]}";
 
-            // 4️⃣ POST RAW HEX (NOT FORM)
-            string rawResponse = await _client.PostRawAsync(
-                url,
-                encRequest,
-                "text/plain"
-            );
-
-            // 5️⃣ Decrypt
-            //string decryptedXml =
-            //    BillAvenueCrypto.LooksLikeHex(rawResponse)
-            //        ? BillAvenueCrypto.DecryptForMdm(rawResponse, cfg["WorkingKey"])
-            //        : rawResponse;
-
-            //string decryptedXml =
-            //    BillAvenueCrypto.LooksLikeHex(rawResponse)
-            //    ? BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]) // ✅ MD5 BASED
-            //    : rawResponse;
-
-            string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
-
-            // 6️⃣ STG BEHAVIOUR (EXPECTED)
-            if (!decryptedXml.Contains("<responseCode>000</responseCode>"))
+            try
             {
-                Console.WriteLine("⚠️ MDM Params not enabled for this biller (STG)");
+                string rawResponse = await _client.PostRawAsync(url, encRequest, "text/plain");
+                string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
+
+                Console.WriteLine($"[MDM] Response: {decryptedXml}");
+
+                if (!decryptedXml.Contains("<responseCode>000</responseCode>"))
+                {
+                    Console.WriteLine($"[MDM] No params for {billerId} - returning empty");
+                    return new List<BbpsBillerInputParamDto>();
+                }
+
+                return BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MDM] Error for {billerId}: {ex.Message}");
                 return new List<BbpsBillerInputParamDto>();
             }
-
-            return BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
         }
 
+        // ---------------------------------------------------------
+        // GET BILLER BY ID
+        // ---------------------------------------------------------
         public async Task<BillerDto?> GetBillerById(string billerId)
         {
             return await _repo.GetBillerById(billerId);
         }
 
-
-        private Dictionary<string, string> BuildCommonForm(
-            IConfigurationSection cfg,
-            string requestId,
-            string encRequest)
-        {
-            return new Dictionary<string, string>
-            {
-                { "accessCode", cfg["AccessCode"] },
-                { "requestId", requestId },
-                { "ver", cfg["Version"] },
-                { "instituteId", cfg["InstituteId"] },
-                { "encRequest", encRequest }
-            };
-        }
-
+        // ---------------------------------------------------------
+        // SEARCH TRANSACTIONS
+        // ---------------------------------------------------------
         public async Task<object> SearchTransactions(
-        string txnRefId,
-        string mobile,
-        DateTime? fromDate,
-        DateTime? toDate)
+            string txnRefId,
+            string mobile,
+            DateTime? fromDate,
+            DateTime? toDate)
         {
-            var data = await _repo.SearchTransactions(
-                txnRefId,
-                mobile,
-                fromDate,
-                toDate);
-
-            return new
-            {
-                success = true,
-                count = data.Count,
-                transactions = data
-            };
+            var data = await _repo.SearchTransactions(txnRefId, mobile, fromDate, toDate);
+            return new { success = true, count = data.Count, transactions = data };
         }
 
+        // ---------------------------------------------------------
+        // GET RECEIPT
+        // ---------------------------------------------------------
         public async Task<object> GetReceipt(string txnRefId)
         {
             var payment = await _repo.GetReceiptRaw(txnRefId);
 
             if (payment == null)
-            {
                 return new { success = false, message = "Transaction not found." };
-            }
 
             var dto = new BbpsReceiptDto
             {
@@ -814,25 +653,18 @@ namespace Payments_core.Services.BBPSService
                 TxnDate = payment.created_on
             };
 
-            // ============================
-            // PARSE RAW XML (CASE SENSITIVE FIX)
-            // ============================
-
             if (!string.IsNullOrWhiteSpace(payment.raw_pay_xml?.ToString()))
             {
                 try
                 {
                     string xmlString = payment.raw_pay_xml.ToString();
-
                     var doc = System.Xml.Linq.XDocument.Parse(xmlString);
                     var root = doc.Root;
 
-                    string GetValue(string tagName)
-                    {
-                        return root.Descendants()
-                                   .FirstOrDefault(e => e.Name.LocalName == tagName)
-                                   ?.Value;
-                    }
+                    string GetValue(string tagName) =>
+                        root.Descendants()
+                            .FirstOrDefault(e => e.Name.LocalName == tagName)
+                            ?.Value;
 
                     dto.CustomerName = GetValue("RespCustomerName");
                     dto.BillNumber = GetValue("RespBillNumber");
@@ -850,7 +682,6 @@ namespace Payments_core.Services.BBPSService
                         dto.CCF = ccfValue;
 
                     dto.TotalAmount = dto.BillAmount + dto.CCF;
-
                     dto.MobileNumber = GetValue("customerMobile");
                 }
                 catch (Exception ex)
@@ -859,13 +690,25 @@ namespace Payments_core.Services.BBPSService
                 }
             }
 
-            return new
-            {
-                success = true,
-                data = dto
-            };
+            return new { success = true, data = dto };
         }
 
-
+        // ---------------------------------------------------------
+        // HELPERS
+        // ---------------------------------------------------------
+        private Dictionary<string, string> BuildCommonForm(
+            IConfigurationSection cfg,
+            string requestId,
+            string encRequest)
+        {
+            return new Dictionary<string, string>
+            {
+                { "accessCode", cfg["AccessCode"] },
+                { "requestId", requestId },
+                { "ver", cfg["Version"] },
+                { "instituteId", cfg["InstituteId"] },
+                { "encRequest", encRequest }
+            };
+        }
     }
 }

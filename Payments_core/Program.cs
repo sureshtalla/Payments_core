@@ -140,6 +140,7 @@ namespace Payments_core
             builder.Services.AddScoped<IWalletService, WalletService>();
             builder.Services.AddScoped<IBbpsComplaintService, BbpsComplaintService>();
             builder.Services.AddScoped<IBbpsRepository, BbpsRepository>();
+            builder.Services.AddScoped<IBbpsCatalogRepository, BbpsCatalogRepository>();
             builder.Services.AddScoped<ILocalFileService, LocalFileService>();
             builder.Services.AddSingleton<WebhookSignatureService>();
             builder.Services.AddScoped<ReconciliationService>();

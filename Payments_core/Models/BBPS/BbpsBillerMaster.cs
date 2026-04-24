@@ -33,6 +33,7 @@ namespace Payments_core.Models.BBPS
         /// false = Not supported
         /// </summary>
         public bool SupportsAdhoc { get; set; }
+        public string BillerStatus { get; set; } = "ACTIVE";
 
         // Managed by DB
         public DateTime? CreatedOn { get; set; }

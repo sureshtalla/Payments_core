@@ -67,7 +67,7 @@ namespace Payments_core.Services.BBPSService.Repository
         Task UpsertBillerInputs(BbpsBillerDto biller);
 
         Task<BillerDto?> GetBillerById(string billerId);
-
+        Task<List<BbpsBillerInputParamDto>> GetBillerParamsFromDb(string billerId);
         Task<IEnumerable<string>> GetActiveBillerIds(string environment);
 
         //Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions();

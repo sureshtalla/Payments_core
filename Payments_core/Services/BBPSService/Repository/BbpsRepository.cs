@@ -199,7 +199,8 @@ namespace Payments_core.Services.BBPSService.Repository
                     p_category = biller.Category,
                     p_fetch_requirement = biller.FetchRequirement,
                     p_payment_amount_exactness = biller.PaymentAmountExactness,
-                    p_supports_adhoc = biller.SupportsAdhoc ? 1 : 0
+                    p_supports_adhoc = biller.SupportsAdhoc ? 1 : 0,
+                    p_biller_status = biller.BillerStatus ?? "ACTIVE"
                 }
             );
         }
@@ -278,7 +279,18 @@ namespace Payments_core.Services.BBPSService.Repository
 
             return result.FirstOrDefault();
         }
+        public async Task<List<BbpsBillerInputParamDto>> GetBillerParamsFromDb(string billerId)
+        {
+            var param = new DynamicParameters();
+            param.Add("p_biller_id", billerId);
 
+            var result = await _db.GetData<BbpsBillerInputParamDto>(
+                "sp_bbps_get_biller_params",
+                param
+            );
+
+            return result.ToList();
+        }
         public async Task<string?> GetBillRequestIdByTxnRef(string txnRefId)
         {
             var rows = await _db.GetData<string>(

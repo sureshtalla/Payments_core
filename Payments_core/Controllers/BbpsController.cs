@@ -34,12 +34,11 @@ namespace Payments_core.Controllers
         {
             try
             {
-                // 🔐 Backend-generated agent info (NPCI compliant)
                 var agentDeviceInfo = new AgentDeviceInfo
                 {
                     Ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1",
-                    InitChannel = "AGT",              // As per BBPS
-                    Mac = Environment.MachineName     // Logical identifier
+                    InitChannel = "AGT",
+                    Mac = Environment.MachineName
                 };
 
                 var res = await _bbps.FetchBill(
@@ -57,11 +56,15 @@ namespace Payments_core.Controllers
             }
             catch (Exception ex)
             {
+                // ✅ TEMPORARY - Full error for debugging
                 return StatusCode(500, new
                 {
                     success = false,
                     code = "FETCH_ERROR",
-                    message = ex.Message
+                    message = ex.Message,
+                    //stackTrace = ex.StackTrace,                    
+                    //inner = ex.InnerException?.Message,            
+                    //innerStack = ex.InnerException?.StackTrace     
                 });
             }
         }

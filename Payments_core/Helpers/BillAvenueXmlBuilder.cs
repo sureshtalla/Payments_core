@@ -12,49 +12,6 @@ namespace Payments_core.Helpers
         // =========================
         // FETCH BILL (NPCI FINAL)
         // =========================
-        //public static string BuildFetchBillXml(
-        //    string instituteId,
-        //    string agentId,
-        //    string requestId,
-        //    string billerId,
-        //    Dictionary<string, string> inputParams,
-        //    AgentDeviceInfo deviceInfo,
-        //    CustomerInfo customerInfo)
-        //  {
-        //      var doc = new XDocument(
-        //          new XElement("billFetchRequest",
-        //              new XElement("instituteId", instituteId),
-        //              new XElement("agentId", agentId),
-
-
-        //              new XElement("agentDeviceInfo",
-        //                  new XElement("ip", deviceInfo.Ip),
-        //                  new XElement("initChannel", deviceInfo.InitChannel),
-        //                  new XElement("mac", deviceInfo.Mac)
-        //              ),
-
-        //              new XElement("customerInfo",
-        //                  new XElement("customerMobile", customerInfo.CustomerMobile),
-        //                  new XElement("customerEmail", customerInfo.CustomerEmail)
-        //              ),
-
-        //              new XElement("requestId", requestId),
-        //              new XElement("billerId", billerId),
-
-        //              new XElement("inputParams",
-        //                  inputParams.Select(kv =>
-        //                      new XElement("input",
-        //                          new XElement("paramName", kv.Key),
-        //                          new XElement("paramValue", kv.Value)
-        //                      )
-        //                  )
-        //              )
-        //          )
-        //      );
-
-        //      return doc.ToString(SaveOptions.DisableFormatting);
-        //  }
-
         public static string BuildFetchBillXml(
             string instituteId,
             string agentId,
@@ -97,47 +54,21 @@ namespace Payments_core.Helpers
         }
 
         // =========================
-        // PAY BILL (NPCI FINAL)
+        // ADHOC PAY (billerAdhoc = true)
         // =========================
-        //public static string BuildPayBillXml(
-        //        string instituteId,
-        //        string requestId,
-        //        string billRequestId,
-        //        long amountInPaise,
-        //        string agentId,
-        //        string customerMobile
-        //    )
-        //{
-        //    var doc = new XDocument(
-        //        new XElement("billPaymentRequest",
-        //            new XElement("instituteId", instituteId),
-        //            new XElement("requestId", requestId),
-        //            new XElement("billRequestId", billRequestId),
-        //            new XElement("agentId", agentId),
-        //            new XElement("amountInfo",
-        //                new XElement("amount", amountInPaise),
-        //                new XElement("currency", "356"),
-        //                new XElement("custConvFee", "0")
-        //            )
-        //        )
-        //    );
-
-        //    return doc.ToString(SaveOptions.DisableFormatting);
-        //}
-
         public static string BuildAdhocPayXml(
-     string instituteId,
-     string requestId,
-     string agentId,
-     string billerId,
-     Dictionary<string, string> inputParams,
-     JsonElement billerResponse,
-     JsonElement? additionalInfo,   // 🔥 NEW
-     long amountInPaise,
-     string amountTag,
-     string customerMobile,
-     AgentDeviceInfo deviceInfo
- )
+            string instituteId,
+            string requestId,
+            string agentId,
+            string billerId,
+            Dictionary<string, string> inputParams,
+            JsonElement billerResponse,
+            JsonElement? additionalInfo,
+            long amountInPaise,
+            string amountTag,
+            string customerMobile,
+            AgentDeviceInfo deviceInfo
+        )
         {
             var inputElements = new XElement("inputParams");
 
@@ -210,7 +141,7 @@ namespace Payments_core.Helpers
                 billerResponseXml.Add(amountOptionsXml);
             }
 
-            // 🔥 ADDITIONAL INFO BLOCK (CRITICAL FIX)
+            // ADDITIONAL INFO BLOCK
             XElement additionalInfoXml = null;
 
             if (additionalInfo.HasValue &&
@@ -244,20 +175,15 @@ namespace Payments_core.Helpers
                         new XElement("mac", deviceInfo.Mac)
                     ),
 
+                    // ✅ FIX 1: Only real customer mobile, no fake data
                     new XElement("customerInfo",
-                        new XElement("REMITTER_NAME", "ABCABC"),
-                        new XElement("customerMobile", customerMobile),
-                        new XElement("customerEmail", "kishor.anand@avenues.info"),
-                        new XElement("customerAdhaar", "548550008000"),
-                        new XElement("customerPan", "HJAUI4588H")
+                        new XElement("customerMobile", customerMobile)
                     ),
 
                     new XElement("billerId", billerId),
                     inputElements,
                     billerResponseXml,
-                    additionalInfoXml,   // 🔥 ADD HERE
-
-                    new XElement("paymentRefId", requestId),
+                    additionalInfoXml,
 
                     new XElement("amountInfo",
                         new XElement("amount", amountInPaise),
@@ -278,10 +204,19 @@ namespace Payments_core.Helpers
                         new XElement("splitPay", "N")
                     ),
 
+                    // ✅ FIX 2: Correct remitter info as per BBPS v2.8.7 spec
                     new XElement("paymentInfo",
                         new XElement("info",
-                            new XElement("infoName", "Remarks"),
-                            new XElement("infoValue", "Received")
+                            new XElement("infoName", "Remitter Name"),
+                            new XElement("infoValue", "MANICORE PRIVATE LIMITED")
+                        ),
+                        new XElement("info",
+                            new XElement("infoName", "Payment Account Info"),
+                            new XElement("infoValue", "Cash Payment")
+                        ),
+                        new XElement("info",
+                            new XElement("infoName", "PaymentRefId"),
+                            new XElement("infoValue", requestId)
                         )
                     )
                 )
@@ -289,103 +224,71 @@ namespace Payments_core.Helpers
 
             return doc.ToString(SaveOptions.DisableFormatting);
         }
+
         // =========================
-        // REGULAR PAY (WITH billRequestId)
+        // REGULAR PAY (billerAdhoc = false, uses billRequestId from fetch)
         // =========================
-        //   public static string BuildRegularPayXml(
-        //    string instituteId,
-        //    string requestId,
-        //    string agentId,
-        //    string billRequestId,
-        //    long amountInPaise,
-        //    string customerMobile,
-        //    AgentDeviceInfo deviceInfo
-        //)
-        //   {
-        //       var doc = new XDocument(
-        //           new XElement("billPaymentRequest",
-
-        //               new XElement("agentId", agentId),
-
-        //               new XElement("agentDeviceInfo",
-        //                   new XElement("ip", deviceInfo.Ip),
-        //                   new XElement("initChannel", deviceInfo.InitChannel),
-        //                   new XElement("mac", deviceInfo.Mac)
-        //               ),
-
-        //               new XElement("customerInfo",
-        //                   new XElement("customerMobile", customerMobile),
-        //                   new XElement("customerEmail", "")
-        //               ),
-
-        //               new XElement("billRequestId", billRequestId),
-
-        //               new XElement("paymentRefId", Guid.NewGuid().ToString("N")),
-
-        //               new XElement("amountInfo",
-        //                   new XElement("amount", amountInPaise),
-        //                   new XElement("currency", "356"),
-        //                   new XElement("custConvFee", "0")
-        //               ),
-
-        //               new XElement("paymentMethod",
-        //                   new XElement("paymentMode", "Wallet"),
-        //                   new XElement("quickPay", "N"),
-        //                   new XElement("splitPay", "N")
-        //               ),
-
-        //               new XElement("paymentInfo",
-        //                   new XElement("info",
-        //                       new XElement("infoName", "Payment Account Info"),
-        //                       new XElement("infoValue", "Wallet")
-        //                   )
-        //               )
-        //           )
-        //       );
-
-        //       return doc.ToString(SaveOptions.DisableFormatting);
-        //   }
-
         public static string BuildRegularPayXml(
-    string agentId,
-    string billRequestId,
-    string paymentRefId,
-    long amount,
-    string customerMobile,
-    AgentDeviceInfo deviceInfo)
+            string agentId,
+            string billRequestId,
+            string paymentRefId,
+            long amount,
+            string customerMobile,
+            AgentDeviceInfo deviceInfo)
         {
-            return $@"<billPaymentRequest>
-            <agentId>{agentId}</agentId>
+            // ✅ FIX 3: Full proper XML with billerAdhoc + remitter info
+            var doc = new XDocument(
+                new XElement("billPaymentRequest",
 
-            <agentDeviceInfo>
-            <ip>{deviceInfo.Ip}</ip>
-            <initChannel>{deviceInfo.InitChannel}</initChannel>
-            <mac>{deviceInfo.Mac}</mac>
-            </agentDeviceInfo>
+                    new XElement("agentId", agentId),
+                    new XElement("billerAdhoc", "false"),
 
-            <customerInfo>
-            <customerMobile>{customerMobile}</customerMobile>
-            </customerInfo>
+                    new XElement("agentDeviceInfo",
+                        new XElement("ip", deviceInfo.Ip),
+                        new XElement("initChannel", deviceInfo.InitChannel),
+                        new XElement("mac", deviceInfo.Mac)
+                    ),
 
-            <billRequestId>{billRequestId}</billRequestId>
-            <paymentRefId>{paymentRefId}</paymentRefId>
+                    new XElement("customerInfo",
+                        new XElement("customerMobile", customerMobile)
+                    ),
 
-            <amountInfo>
-            <amount>{amount}</amount>
-            <currency>356</currency>
-            </amountInfo>
+                    new XElement("billRequestId", billRequestId),
 
-            <paymentMethod>
-            <paymentMode>Cash</paymentMode>
-            <quickPay>N</quickPay>
-            <splitPay>N</splitPay>
-            </paymentMethod>
+                    new XElement("amountInfo",
+                        new XElement("amount", amount),
+                        new XElement("currency", "356"),
+                        new XElement("custConvFee", "0")
+                    ),
 
-            </billPaymentRequest>";
+                    new XElement("paymentMethod",
+                        new XElement("paymentMode", "Cash"),
+                        new XElement("quickPay", "N"),
+                        new XElement("splitPay", "N")
+                    ),
+
+                    new XElement("paymentInfo",
+                        new XElement("info",
+                            new XElement("infoName", "Remitter Name"),
+                            new XElement("infoValue", "MANICORE PRIVATE LIMITED")
+                        ),
+                        new XElement("info",
+                            new XElement("infoName", "Payment Account Info"),
+                            new XElement("infoValue", "Cash Payment")
+                        ),
+                        new XElement("info",
+                            new XElement("infoName", "PaymentRefId"),
+                            new XElement("infoValue", paymentRefId)
+                        )
+                    )
+                )
+            );
+
+            return doc.ToString(SaveOptions.DisableFormatting);
         }
 
         // =========================
-        // STATUS (NPCI FINAL)
+        // STATUS CHECK (NPCI FINAL)
         // =========================
         public static string BuildStatusXmlByTxnRef(
             string instituteId,
@@ -405,7 +308,7 @@ namespace Payments_core.Helpers
         }
 
         // =========================
-        // MDM (LEAVE AS-IS)
+        // MDM — BILLER INFO REQUEST
         // =========================
         public static string BuildBillerInfoRequest(string billerId)
         {
@@ -415,7 +318,9 @@ namespace Payments_core.Helpers
                 "</billerInfoRequest>";
         }
 
-
+        // =========================
+        // MDM — BILLER PARAMS REQUEST
+        // =========================
         public static string BuildBillerParamsRequestXml(string billerId)
         {
             return
@@ -453,6 +358,9 @@ namespace Payments_core.Helpers
             return doc.ToString(SaveOptions.DisableFormatting);
         }
 
+        // =========================
+        // STANDARD PAY (generic, with dynamic paymentMode)
+        // =========================
         public static string BuildStandardPayXml(
             string agentId,
             string billerId,
@@ -486,11 +394,11 @@ namespace Payments_core.Helpers
 
             var billerResponseXml = new XElement("billerResponse",
                 new XElement("billAmount", GetSafe("billAmount")),
-                new XElement("billDate", GetSafe("billDate")),
+                new XElement("billDate",   GetSafe("billDate")),
                 new XElement("billNumber", GetSafe("billNumber")),
                 new XElement("billPeriod", GetSafe("billPeriod")),
                 new XElement("customerName", GetSafe("customerName")),
-                new XElement("dueDate", GetSafe("dueDate"))
+                new XElement("dueDate",    GetSafe("dueDate"))
             );
 
             var doc = new XDocument(
@@ -505,11 +413,7 @@ namespace Payments_core.Helpers
                     ),
 
                     new XElement("customerInfo",
-                        new XElement("REMITTER_NAME", "ABC"),   // pass dynamically later
-                        new XElement("customerMobile", customerMobile),
-                        new XElement("customerEmail", "kishor.anand@avenues.info"),
-                        new XElement("customerAdhaar", "548550008000"),
-                        new XElement("customerPan", "HJAUI4588H")
+                        new XElement("customerMobile", customerMobile)
                     ),
 
                     new XElement("billerId", billerId),
@@ -517,8 +421,6 @@ namespace Payments_core.Helpers
                     inputElements,
 
                     billerResponseXml,
-
-                    new XElement("paymentRefId", Guid.NewGuid().ToString("N")),
 
                     new XElement("amountInfo",
                         new XElement("amount", amountInPaise),
@@ -534,8 +436,16 @@ namespace Payments_core.Helpers
 
                     new XElement("paymentInfo",
                         new XElement("info",
+                            new XElement("infoName", "Remitter Name"),
+                            new XElement("infoValue", "MANICORE PRIVATE LIMITED")
+                        ),
+                        new XElement("info",
                             new XElement("infoName", "Payment Account Info"),
                             new XElement("infoValue", paymentAccountInfo)
+                        ),
+                        new XElement("info",
+                            new XElement("infoName", "PaymentRefId"),
+                            new XElement("infoValue", Guid.NewGuid().ToString("N"))
                         )
                     )
                 )
@@ -543,6 +453,5 @@ namespace Payments_core.Helpers
 
             return doc.ToString(SaveOptions.DisableFormatting);
         }
-
     }
 }

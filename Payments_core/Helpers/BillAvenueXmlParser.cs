@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Payments_core.Models;
+using Payments_core.Models.BBPS;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
-using Payments_core.Models.BBPS;
 
 namespace Payments_core.Helpers
 {
@@ -239,13 +240,11 @@ namespace Payments_core.Helpers
             var doc = XDocument.Parse(xml);
             XNamespace ns = doc.Root.GetDefaultNamespace();
 
-            // ✅ BBPS uses <biller>
             var billerNodes = doc.Descendants(ns + "biller").ToList();
 
             Console.WriteLine("====== BILLER PARSER DEBUG ======");
             Console.WriteLine("XML Length = " + xml.Length);
             Console.WriteLine("biller nodes found = " + billerNodes.Count);
-
 
             var billers = billerNodes
                 .Select(x => new BbpsBillerMaster
@@ -255,23 +254,22 @@ namespace Payments_core.Helpers
                     Category = x.Element(ns + "billerCategory")?.Value,
                     FetchRequirement = x.Element(ns + "billerFetchRequiremet")?.Value,
                     PaymentAmountExactness = x.Element(ns + "paymentAmountExactness")?.Value?.ToUpper(),
-                    SupportsAdhoc =
-                    string.Equals(
+                    SupportsAdhoc = string.Equals(
                         x.Element(ns + "billerAdhoc")?.Value,
                         "true",
-                        StringComparison.OrdinalIgnoreCase
-                    ),
+                        StringComparison.OrdinalIgnoreCase),
+                    // ✅ FIXED: was 'biller.Element' — should be 'x.Element'
+                    BillerStatus = x.Element(ns + "billerStatus")?.Value ?? "ACTIVE",
                     CreatedOn = DateTime.UtcNow
-
                 })
                 .Where(b => !string.IsNullOrWhiteSpace(b.BillerId))
                 .ToList();
+
             Console.WriteLine("Parsed biller count = " + billers.Count);
             Console.WriteLine("=================================");
 
             return billers;
         }
-
         //public static List<BbpsBillerInputParamDto> ParseBillerInputParams(string xml)
         //{
         //    var doc = XDocument.Parse(xml);
