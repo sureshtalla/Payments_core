@@ -94,7 +94,12 @@ namespace Payments_core.Helpers
                 }
             }
 
-            Add("billAmount");
+            // ✅ FIX: Use amountInPaise directly for billAmount in billerResponse XML.
+            // The frontend sends billAmount in RUPEES (after ConvertPaiseToRupees).
+            // BillAvenue expects billAmount in PAISE inside billerResponse.
+            // amountInPaise is already validated and correct — use it directly.
+            billerResponseXml.Add(new XElement("billAmount", amountInPaise));
+
             Add("billDate");
             Add("billNumber");
             Add("billPeriod");
@@ -175,7 +180,6 @@ namespace Payments_core.Helpers
                         new XElement("mac", deviceInfo.Mac)
                     ),
 
-                    // ✅ FIX 1: Only real customer mobile, no fake data
                     new XElement("customerInfo",
                         new XElement("customerMobile", customerMobile)
                     ),
@@ -204,7 +208,6 @@ namespace Payments_core.Helpers
                         new XElement("splitPay", "N")
                     ),
 
-                    // ✅ FIX 2: Correct remitter info as per BBPS v2.8.7 spec
                     new XElement("paymentInfo",
                         new XElement("info",
                             new XElement("infoName", "Remitter Name"),
@@ -236,7 +239,6 @@ namespace Payments_core.Helpers
             string customerMobile,
             AgentDeviceInfo deviceInfo)
         {
-            // ✅ FIX 3: Full proper XML with billerAdhoc + remitter info
             var doc = new XDocument(
                 new XElement("billPaymentRequest",
 
@@ -394,11 +396,11 @@ namespace Payments_core.Helpers
 
             var billerResponseXml = new XElement("billerResponse",
                 new XElement("billAmount", GetSafe("billAmount")),
-                new XElement("billDate",   GetSafe("billDate")),
+                new XElement("billDate", GetSafe("billDate")),
                 new XElement("billNumber", GetSafe("billNumber")),
                 new XElement("billPeriod", GetSafe("billPeriod")),
                 new XElement("customerName", GetSafe("customerName")),
-                new XElement("dueDate",    GetSafe("dueDate"))
+                new XElement("dueDate", GetSafe("dueDate"))
             );
 
             var doc = new XDocument(

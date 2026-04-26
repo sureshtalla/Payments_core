@@ -5,6 +5,8 @@ using Payments_core.Services.WalletService;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using static Payments_core.Models.BBPS.BbpsBillerDto;
 using Payments_core.Models;
@@ -23,6 +25,9 @@ namespace Payments_core.Services.BBPSService
         private readonly IWalletService _wallet;
         private readonly IUserDataService _userDataService;
         private readonly IMSG91OTPService _msgService;
+
+        // ✅ Round-robin counter for agent selection
+        private static int _agentIndex = -1;
 
         public BbpsService(
             IConfiguration cfg,
@@ -53,7 +58,10 @@ namespace Payments_core.Services.BBPSService
             var cfg = _cfg.GetSection("BillAvenue");
             string requestId = BillAvenueRequestId.Generate();
 
-            Console.WriteLine($"[BBPS][FETCH][START] RequestId={requestId}, UserId={userId}, BillerId={billerId}");
+            // ✅ Pick ONE agent for entire FetchBill operation
+            string agentId = GetNextAgentId(cfg);
+
+            Console.WriteLine($"[BBPS][FETCH][START] RequestId={requestId}, UserId={userId}, BillerId={billerId}, AgentId={agentId}");
 
             try
             {
@@ -65,7 +73,7 @@ namespace Payments_core.Services.BBPSService
 
                 string xml = BillAvenueXmlBuilder.BuildFetchBillXml(
                     cfg["InstituteId"],
-                    cfg["AgentId"],
+                    agentId,
                     requestId,
                     billerId,
                     inputParams,
@@ -92,12 +100,10 @@ namespace Payments_core.Services.BBPSService
                 if (string.IsNullOrEmpty(parsed.ResponseCode))
                     throw new Exception("BillAvenue responseCode missing in Fetch response.");
 
-                // ✅ FIX: Safe decimal parse for BillAmount
                 decimal safeBillAmount = 0;
                 if (!string.IsNullOrWhiteSpace(parsed.BillerResponse?.BillAmount))
                     decimal.TryParse(parsed.BillerResponse.BillAmount, out safeBillAmount);
 
-                // ✅ FIX: Safe DateTime parse for DueDate
                 DateTime? safeDueDate = null;
                 if (!string.IsNullOrWhiteSpace(parsed.BillerResponse?.DueDate))
                 {
@@ -105,14 +111,17 @@ namespace Payments_core.Services.BBPSService
                         safeDueDate = parsedDate;
                 }
 
-                // ✅ FIX: Safe customer name
                 string safeCustomerName = parsed.BillerResponse?.CustomerName ?? "";
+
+                string effectiveBillRequestId = !string.IsNullOrWhiteSpace(parsed.BillRequestId)
+                    ? parsed.BillRequestId
+                    : requestId;
 
                 await _repo.SaveFetchBill(
                     requestId,
-                    parsed.BillRequestId ?? "",
+                    effectiveBillRequestId,
                     userId,
-                    cfg["AgentId"],
+                    agentId,
                     billerId,
                     await _repo.GetBillerCategory(billerId),
                     safeCustomerName,
@@ -125,14 +134,14 @@ namespace Payments_core.Services.BBPSService
                     decryptedXml
                 );
 
-                Console.WriteLine($"[BBPS][FETCH][END] RequestId={requestId}, ResponseCode={parsed.ResponseCode}");
+                Console.WriteLine($"[BBPS][FETCH][END] RequestId={requestId}, ResponseCode={parsed.ResponseCode}, EffectiveBillRequestId={effectiveBillRequestId}");
 
                 return new BbpsFetchResponseDto
                 {
                     ResponseCode = parsed.ResponseCode,
                     ResponseMessage = parsed.ResponseMessage,
                     RequestId = requestId,
-                    BillRequestId = parsed.BillRequestId,
+                    BillRequestId = effectiveBillRequestId,
                     InputParams = parsed.InputParams,
                     BillerResponse = parsed.BillerResponse,
                     AdditionalInfo = parsed.AdditionalInfo
@@ -209,9 +218,16 @@ namespace Payments_core.Services.BBPSService
                 Console.WriteLine($"IsAdhoc (DB Based) = {isAdhoc}");
 
                 var cfg = _cfg.GetSection("BillAvenue");
-                long amountInPaise = (long)amount;
+                long amountInPaise = (long)(amount * 100);
 
-                // ✅ Safe amount validation
+                // ✅ Pick ONE agent for entire PayBill operation
+                string agentId = GetNextAgentId(cfg);
+
+                // ✅ KEY FIX: Always generate a BRAND NEW requestId for pay
+                // NEVER reuse the fetch requestId — BillAvenue returns responseCode 001 for duplicate requestIds
+                string payRequestId = BillAvenueRequestId.Generate();
+                Console.WriteLine($"[PAY] FetchRequestId={requestId}, BillRequestId={billRequestId}, NewPayRequestId={payRequestId}, AgentId={agentId}");
+
                 long fetchAmount = 0;
 
                 if (billerResponse != null)
@@ -252,14 +268,18 @@ namespace Payments_core.Services.BBPSService
                         }
                     }
 
-                    // Fallback to billAmount
                     if (fetchAmount == 0 && json.TryGetProperty("billAmount", out var billAmt))
                     {
                         var billAmtStr = billAmt.ToString();
                         if (!string.IsNullOrWhiteSpace(billAmtStr))
-                            long.TryParse(billAmtStr, out fetchAmount);
+                        {
+                            if (decimal.TryParse(billAmtStr, out decimal rupeesFromFrontend))
+                                fetchAmount = (long)(rupeesFromFrontend * 100);
+                        }
                     }
                 }
+
+                Console.WriteLine($"[PAY] fetchAmount(paise)={fetchAmount}, amountInPaise={amountInPaise}");
 
                 if (fetchAmount != amountInPaise)
                     throw new ApplicationException(
@@ -281,8 +301,8 @@ namespace Payments_core.Services.BBPSService
 
                     xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
                         cfg["InstituteId"],
-                        requestId,
-                        cfg["AgentId"],
+                        payRequestId,
+                        agentId,
                         billerId,
                         inputParams,
                         billerResponse.Value,
@@ -295,31 +315,39 @@ namespace Payments_core.Services.BBPSService
                 }
                 else
                 {
-                    if (string.IsNullOrWhiteSpace(billRequestId))
+                    string effectiveBillRequestId = !string.IsNullOrWhiteSpace(billRequestId)
+                        ? billRequestId
+                        : requestId;
+
+                    if (string.IsNullOrWhiteSpace(effectiveBillRequestId))
                         throw new ApplicationException("billRequestId is required for regular payment");
 
+                    Console.WriteLine($"[PAY] Regular pay using billRequestId={effectiveBillRequestId}");
+
                     xml = BillAvenueXmlBuilder.BuildRegularPayXml(
-                        cfg["AgentId"],
-                        billRequestId,
-                        requestId,
+                        agentId,
+                        effectiveBillRequestId,
+                        payRequestId,
                         amountInPaise,
                         customerMobile,
                         deviceInfo
                     );
+
+                    billRequestId = effectiveBillRequestId;
                 }
 
                 Console.WriteLine("---------- PAY XML ----------");
                 Console.WriteLine(xml);
 
                 walletTxnId = await _wallet.HoldAsync(
-                    userId, amount, "BBPS", requestId, "BBPS Bill Payment");
+                    userId, amount, "BBPS", payRequestId, "BBPS Bill Payment");
 
                 string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
                 var form = new Dictionary<string, string>
                 {
                     { "accessCode", cfg["AccessCode"] },
-                    { "requestId", requestId },
+                    { "requestId", payRequestId },
                     { "ver", cfg["Version"] },
                     { "instituteId", cfg["InstituteId"] },
                     { "encRequest", encRequest }
@@ -335,8 +363,10 @@ namespace Payments_core.Services.BBPSService
 
                 var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
 
+                Console.WriteLine($"[PAY][CTRL] ResponseCode={dto.ResponseCode}, TxnRefId={dto.TxnRefId}");
+
                 await _repo.SavePayment(
-                    requestId,
+                    payRequestId,
                     billRequestId ?? "",
                     dto.TxnRefId,
                     userId,
@@ -352,10 +382,10 @@ namespace Payments_core.Services.BBPSService
 
                 if (dto.Status == "SUCCESS")
                     await _wallet.FinalizeAsync(
-                        userId, amount, "BBPS", requestId, walletTxnId, "BBPS Success");
+                        userId, amount, "BBPS", payRequestId, walletTxnId, "BBPS Success");
                 else
                     await _wallet.ReleaseAsync(
-                        userId, amount, "BBPS", requestId, walletTxnId, "BBPS Failed");
+                        userId, amount, "BBPS", payRequestId, walletTxnId, "BBPS Failed");
 
                 return dto;
             }
@@ -564,7 +594,6 @@ namespace Payments_core.Services.BBPSService
         // ---------------------------------------------------------
         public async Task<List<BbpsBillerInputParamDto>> GetBillerParams(string billerId)
         {
-            // Step 1: Check DB first
             var dbParams = await _repo.GetBillerParamsFromDb(billerId);
 
             if (dbParams != null && dbParams.Any())
@@ -573,7 +602,6 @@ namespace Payments_core.Services.BBPSService
                 return dbParams;
             }
 
-            // Step 2: Call live MDM API
             Console.WriteLine($"[MDM] DB miss - calling live MDM for {billerId}");
 
             var cfg = _cfg.GetSection("BillAvenue");
@@ -709,6 +737,36 @@ namespace Payments_core.Services.BBPSService
                 { "instituteId", cfg["InstituteId"] },
                 { "encRequest", encRequest }
             };
+        }
+
+        // ---------------------------------------------------------
+        // ROUND ROBIN AGENT SELECTOR
+        // ---------------------------------------------------------
+        private string GetNextAgentId(IConfigurationSection cfg)
+        {
+            var agentIds = new[]
+            {
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_0"),
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_1"),
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_2"),
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_3"),
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_4"),
+                System.Environment.GetEnvironmentVariable("BILLAVENUE_AGENT_ID_5")
+            };
+
+            var validIds = agentIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .ToArray();
+
+            if (validIds.Length == 0)
+            {
+                Console.WriteLine($"[AGENT] No env AgentIds found, using config AgentId={cfg["AgentId"]}");
+                return cfg["AgentId"];
+            }
+
+            int idx = Interlocked.Increment(ref _agentIndex) % validIds.Length;
+            Console.WriteLine($"[AGENT] Round-robin index={idx}, AgentId={validIds[idx]}");
+            return validIds[idx];
         }
     }
 }

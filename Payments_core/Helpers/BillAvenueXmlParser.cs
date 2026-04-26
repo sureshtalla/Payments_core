@@ -102,13 +102,14 @@ namespace Payments_core.Helpers
             // ==============================
             var billerResponse = new BillerResponseDto
             {
-                BillAmount = billerResponseElement?.Element("billAmount")?.Value,
+                BillAmount = ConvertPaiseToRupees(billerResponseElement?.Element("billAmount")?.Value),
                 BillDate = billerResponseElement?.Element("billDate")?.Value,
                 BillNumber = billerResponseElement?.Element("billNumber")?.Value,
                 BillPeriod = billerResponseElement?.Element("billPeriod")?.Value,
                 CustomerName = billerResponseElement?.Element("customerName")?.Value,
                 DueDate = billerResponseElement?.Element("dueDate")?.Value,
                 AmountOptions = amountOptions
+
             };
 
             return new BbpsFetchResponseDto
@@ -348,5 +349,14 @@ namespace Payments_core.Helpers
                     root.Element(ns + "responseMessage")?.Value
             };
         }
+        // ✅ ADD THIS NEW METHOD HERE ↓
+        private static string? ConvertPaiseToRupees(string? paiseValue)
+        {
+            if (string.IsNullOrWhiteSpace(paiseValue)) return paiseValue;
+            if (decimal.TryParse(paiseValue, out decimal paise))
+                return (paise / 100m).ToString("0.##");
+            return paiseValue;
+        }
+
     }
 }
