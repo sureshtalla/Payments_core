@@ -77,7 +77,7 @@ namespace Payments_core.Services.BBPSService.Repository
         //    string status,
         //    string rawStatusXml
         //);
-
+        Task<string?> GetAgentIdByRequestId(string requestId);
 
         Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions();
 

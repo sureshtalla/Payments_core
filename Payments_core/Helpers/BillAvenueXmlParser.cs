@@ -10,23 +10,6 @@ namespace Payments_core.Helpers
     public static class BillAvenueXmlParser
     {
         // ---------------- FETCH ----------------
-        //public static BbpsFetchResponseDto ParseFetch(string xml)
-        //{
-        //    var doc = XDocument.Parse(xml);
-        //    XNamespace ns = doc.Root.GetDefaultNamespace();
-        //    var x = doc.Root;
-
-        //    return new BbpsFetchResponseDto
-        //    {
-        //        ResponseCode = x.Element(ns + "responseCode")?.Value,
-        //        ResponseMessage = x.Element(ns + "responseMessage")?.Value,
-        //        BillRequestId = x.Element(ns + "billRequestId")?.Value,
-        //        CustomerName = x.Element(ns + "customerName")?.Value,
-        //        BillAmount = decimal.Parse(x.Element(ns + "billAmount")?.Value ?? "0"),
-        //        DueDate = DateTime.Parse(x.Element(ns + "dueDate")?.Value ?? DateTime.MinValue.ToString())
-        //    };
-        //}
-
         public static BbpsFetchResponseDto ParseFetch(string xml)
         {
             var doc = XDocument.Parse(xml);
@@ -51,9 +34,6 @@ namespace Payments_core.Helpers
 
             var billerResponseElement = root.Element("billerResponse");
 
-            // ==============================
-            // 🔥 Parse InputParams (DTO)
-            // ==============================
             var inputParams = root
                 .Element("inputParams")?
                 .Elements("input")
@@ -64,9 +44,6 @@ namespace Payments_core.Helpers
                 })
                 .ToList();
 
-            // ==============================
-            // 🔥 Parse AdditionalInfo (DTO)
-            // ==============================
             var additionalInfo = root
                 .Element("additionalInfo")?
                 .Elements("info")
@@ -77,14 +54,8 @@ namespace Payments_core.Helpers
                 })
                 .ToList();
 
-            // ==============================
-            // 🔥 Parse AmountOptions (DTO)
-            // ==============================
             List<AmountOptionDto> amountOptions = null;
-
-            var amountOptionsElement =
-                billerResponseElement?.Element("amountOptions");
-
+            var amountOptionsElement = billerResponseElement?.Element("amountOptions");
             if (amountOptionsElement != null)
             {
                 amountOptions = amountOptionsElement
@@ -97,9 +68,6 @@ namespace Payments_core.Helpers
                     .ToList();
             }
 
-            // ==============================
-            // 🔥 Build BillerResponse DTO
-            // ==============================
             var billerResponse = new BillerResponseDto
             {
                 BillAmount = ConvertPaiseToRupees(billerResponseElement?.Element("billAmount")?.Value),
@@ -109,7 +77,6 @@ namespace Payments_core.Helpers
                 CustomerName = billerResponseElement?.Element("customerName")?.Value,
                 DueDate = billerResponseElement?.Element("dueDate")?.Value,
                 AmountOptions = amountOptions
-
             };
 
             return new BbpsFetchResponseDto
@@ -125,67 +92,39 @@ namespace Payments_core.Helpers
         }
 
         // ---------------- PAY ----------------
+        // FIX: BillAvenue Pay response has NO <status> or <responseMessage> tags.
+        // Correct tag is <responseReason>. Status must be derived from responseCode + txnRefId.
         public static BbpsPayResponseDto ParsePay(string xml)
         {
             var doc = XDocument.Parse(xml);
-            XNamespace ns = doc.Root.GetDefaultNamespace();
-            var x = doc.Root;
+            var root = doc.Root;
+
+            var responseCode = root.Element("responseCode")?.Value;
+            var responseReason = root.Element("responseReason")?.Value;
+            var txnRefId = root.Element("txnRefId")?.Value;
+
+            string status;
+            if (responseCode == "000" && !string.IsNullOrWhiteSpace(txnRefId))
+                status = "SUCCESS";
+            else if (responseCode == "001")
+                status = "FAILED";
+            else if (responseCode == "204" || responseCode == "205" || string.IsNullOrWhiteSpace(responseCode))
+                status = "PENDING";
+            else if (!string.IsNullOrWhiteSpace(txnRefId))
+                status = "PENDING";
+            else
+                status = "PENDING";
 
             return new BbpsPayResponseDto
             {
-                ResponseCode = x.Element(ns + "responseCode")?.Value,
-                ResponseMessage = x.Element(ns + "responseMessage")?.Value,
-                TxnRefId = x.Element(ns + "txnRefId")?.Value,
-                Status = x.Element(ns + "status")?.Value
+                ResponseCode = responseCode,
+                ResponseMessage = responseReason,
+                TxnRefId = txnRefId,
+                Status = status
             };
         }
 
         // ---------------- STATUS ----------------
-        //public static BbpsStatusResponseDto ParseStatus(string xml)
-        //{
-        //    var dto = new BbpsStatusResponseDto();
-
-        //    if (string.IsNullOrWhiteSpace(xml))
-        //        return dto;
-
-        //    dto.RawXml = xml;
-
-        //    var doc = XDocument.Parse(xml);
-
-        //    var root = doc.Root;   // 🔥 safer than Element()
-
-        //    if (root == null)
-        //        return dto;
-
-        //    dto.ResponseCode = root.Element("responseCode")?.Value?.Trim();
-        //    dto.ResponseMessage = root.Element("responseReason")?.Value?.Trim();
-
-        //    var txnNode = root.Element("txnList");
-
-        //    if (txnNode != null)
-        //    {
-        //        dto.TxnRefId = txnNode.Element("txnReferenceId")?.Value?.Trim();
-        //        dto.Status = txnNode.Element("txnStatus")?.Value?.Trim()?.ToUpper();
-        //    }
-
-        //    Console.WriteLine($"[PARSED] Code={dto.ResponseCode}, TxnRef={dto.TxnRefId}, Status={dto.Status}");
-
-        //    if (string.IsNullOrWhiteSpace(dto.Status))
-        //    {
-        //        if (dto.ResponseCode == "000" &&
-        //            !string.IsNullOrWhiteSpace(dto.TxnRefId))
-        //        {
-        //            dto.Status = "SUCCESS";
-        //        }
-        //        else
-        //        {
-        //            dto.Status = "PENDING";
-        //        }
-        //    }
-
-        //    return dto;
-        //}
-
         public static BbpsStatusResponseDto ParseStatus(string xml)
         {
             var dto = new BbpsStatusResponseDto();
@@ -196,7 +135,6 @@ namespace Payments_core.Helpers
             dto.RawXml = xml;
 
             var doc = XDocument.Parse(xml);
-
             var root = doc.Element("transactionStatusResp");
             if (root == null)
                 return dto;
@@ -205,13 +143,10 @@ namespace Payments_core.Helpers
             dto.ResponseMessage = root.Element("responseReason")?.Value?.Trim();
 
             var txnNode = root.Element("txnList");
-
             if (txnNode != null)
             {
                 dto.TxnRefId = txnNode.Element("txnReferenceId")?.Value?.Trim();
                 dto.Status = txnNode.Element("txnStatus")?.Value?.Trim()?.ToUpper();
-
-                // 🔥 NEW FIELDS
                 dto.CustomerName = txnNode.Element("respCustomerName")?.Value?.Trim();
                 dto.PaidAmount = txnNode.Element("amount")?.Value?.Trim();
                 dto.ApprovalRefNumber = txnNode.Element("approvalRefNumber")?.Value?.Trim();
@@ -221,21 +156,16 @@ namespace Payments_core.Helpers
 
             if (string.IsNullOrWhiteSpace(dto.Status))
             {
-                if (dto.ResponseCode == "000" &&
-                    !string.IsNullOrWhiteSpace(dto.TxnRefId))
-                {
+                if (dto.ResponseCode == "000" && !string.IsNullOrWhiteSpace(dto.TxnRefId))
                     dto.Status = "SUCCESS";
-                }
                 else
-                {
                     dto.Status = "PENDING";
-                }
             }
 
             return dto;
         }
-        // ---------------- MDM BILLERS (FIXED) ----------------
-        // File: Payments_core/Helpers/BillAvenueXmlParser.cs
+
+        // ---------------- MDM BILLERS ----------------
         public static List<BbpsBillerMaster> ParseBillerInfo(string xml)
         {
             var doc = XDocument.Parse(xml);
@@ -256,10 +186,9 @@ namespace Payments_core.Helpers
                     FetchRequirement = x.Element(ns + "billerFetchRequiremet")?.Value,
                     PaymentAmountExactness = x.Element(ns + "paymentAmountExactness")?.Value?.ToUpper(),
                     SupportsAdhoc = string.Equals(
-                        x.Element(ns + "billerAdhoc")?.Value,
-                        "true",
-                        StringComparison.OrdinalIgnoreCase),
-                    // ✅ FIXED: was 'biller.Element' — should be 'x.Element'
+                                                x.Element(ns + "billerAdhoc")?.Value,
+                                                "true",
+                                                StringComparison.OrdinalIgnoreCase),
                     BillerStatus = x.Element(ns + "billerStatus")?.Value ?? "ACTIVE",
                     CreatedOn = DateTime.UtcNow
                 })
@@ -271,33 +200,6 @@ namespace Payments_core.Helpers
 
             return billers;
         }
-        //public static List<BbpsBillerInputParamDto> ParseBillerInputParams(string xml)
-        //{
-        //    var doc = XDocument.Parse(xml);
-        //    XNamespace ns = doc.Root.GetDefaultNamespace();
-
-        //    return doc
-        //        .Descendants(ns + "paramInfo")
-        //        .Select(x => new BbpsBillerInputParamDto
-        //        {
-        //            ParamName = x.Element(ns + "paramName")?.Value,
-        //            DataType = x.Element(ns + "dataType")?.Value,
-        //            IsOptional =
-        //                string.Equals(
-        //                    x.Element(ns + "isOptional")?.Value,
-        //                    "true",
-        //                    StringComparison.OrdinalIgnoreCase),
-        //            MinLength = int.Parse(x.Element(ns + "minLength")?.Value ?? "0"),
-        //            MaxLength = int.Parse(x.Element(ns + "maxLength")?.Value ?? "0"),
-        //            Visibility =
-        //                string.Equals(
-        //                    x.Element(ns + "visibility")?.Value,
-        //                    "true",
-        //                    StringComparison.OrdinalIgnoreCase)
-        //        })
-        //        .Where(p => !string.IsNullOrWhiteSpace(p.ParamName))
-        //        .ToList();
-        //}
 
         public static List<BbpsBillerInputParamDto> ParseBillerInputParams(string xml)
         {
@@ -311,24 +213,21 @@ namespace Payments_core.Helpers
                     ParamName = x.Element(ns + "paramName")?.Value?.Trim(),
                     DataType = x.Element(ns + "dataType")?.Value,
                     IsOptional = string.Equals(
-                        x.Element(ns + "isOptional")?.Value,
-                        "true",
-                        StringComparison.OrdinalIgnoreCase),
+                                     x.Element(ns + "isOptional")?.Value,
+                                     "true",
+                                     StringComparison.OrdinalIgnoreCase),
                     MinLength = int.Parse(x.Element(ns + "minLength")?.Value ?? "0"),
                     MaxLength = int.Parse(x.Element(ns + "maxLength")?.Value ?? "0"),
                     Visibility = string.Equals(
-                        x.Element(ns + "visibility")?.Value,
-                        "true",
-                        StringComparison.OrdinalIgnoreCase)
+                                     x.Element(ns + "visibility")?.Value,
+                                     "true",
+                                     StringComparison.OrdinalIgnoreCase)
                 })
-                // ✅ ONLY VALID INPUT FIELDS
                 .Where(p =>
                     p.Visibility &&
                     !string.IsNullOrWhiteSpace(p.ParamName) &&
                     !string.IsNullOrWhiteSpace(p.DataType) &&
-                    p.MaxLength > 0
-                )
-                // ✅ REMOVE DUPLICATES
+                    p.MaxLength > 0)
                 .GroupBy(p => p.ParamName)
                 .Select(g => g.First())
                 .ToList();
@@ -343,13 +242,12 @@ namespace Payments_core.Helpers
 
             return new BbpsBillValidationResponseDto
             {
-                ResponseCode =
-                    root.Element(ns + "responseCode")?.Value,
-                ResponseMessage =
-                    root.Element(ns + "responseMessage")?.Value
+                ResponseCode = root.Element(ns + "responseCode")?.Value,
+                ResponseMessage = root.Element(ns + "responseMessage")?.Value
             };
         }
-        // ✅ ADD THIS NEW METHOD HERE ↓
+
+        // ---------------- HELPERS ----------------
         private static string? ConvertPaiseToRupees(string? paiseValue)
         {
             if (string.IsNullOrWhiteSpace(paiseValue)) return paiseValue;
@@ -357,6 +255,5 @@ namespace Payments_core.Helpers
                 return (paise / 100m).ToString("0.##");
             return paiseValue;
         }
-
     }
 }

@@ -45,7 +45,7 @@ namespace Payments_core.Services.Reconciliation
         public async Task RunBankWalletReconciliation()
         {
             await _db.ExecuteStoredAsync(
-                "sp_reconcile_bank_wallet",
+                "sp_reconcile_wallet_vs_bank",
                 null);
         }
 

@@ -342,6 +342,13 @@ namespace Payments_core.Services.BBPSService.Repository
 
             return result.FirstOrDefault();
         }
-
+        public async Task<string?> GetAgentIdByRequestId(string requestId)
+        {
+            var rows = await _db.GetData<string>(
+                "sp_bbps_get_agent_id_by_request_id",
+                new DynamicParameters(new { p_request_id = requestId })
+            );
+            return rows.FirstOrDefault();
+        }
     }
 }
