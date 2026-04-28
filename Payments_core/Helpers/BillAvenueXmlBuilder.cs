@@ -55,19 +55,21 @@ namespace Payments_core.Helpers
         // ADHOC PAY  (billerAdhoc = true)
         // =============================================================
         public static string BuildAdhocPayXml(
-            string instituteId,
-            string requestId,
-            string agentId,
-            string billerId,
-            string remitterName,
-            Dictionary<string, string> inputParams,
-            JsonElement billerResponse,
-            JsonElement? additionalInfo,
-            long amountInPaise,
-            string amountTag,
-            string customerMobile,
-            AgentDeviceInfo deviceInfo
-        )
+     string instituteId,
+     string requestId,
+     string fetchRequestId,
+     string agentId,
+     string billerId,
+     string remitterName,
+     Dictionary<string, string> inputParams,
+     JsonElement billerResponse,
+     JsonElement? additionalInfo,
+     long amountInPaise,          // ← custom recharge amount → goes to <amountInfo>
+     long fetchBillAmountPaise,   // ← ADD THIS: original fetch amount → goes to <billerResponse>
+     string amountTag,
+     string customerMobile,
+     AgentDeviceInfo deviceInfo
+ )
         {
             var inputElements = new XElement("inputParams");
             foreach (var kv in inputParams)
@@ -81,54 +83,56 @@ namespace Payments_core.Helpers
             }
 
             var billerResponseXml = new XElement("billerResponse");
-
             void AddIfPresent(string name)
             {
                 if (billerResponse.TryGetProperty(name, out var val))
                 {
                     var v = val.ToString();
+                    // ✅ E211 FIX: Send ALL values including NA and 1900-01-01
+                    // BillAvenue stores full fetch response and validates exactly during pay
                     if (!string.IsNullOrWhiteSpace(v))
                         billerResponseXml.Add(new XElement(name, v));
                 }
             }
 
-            billerResponseXml.Add(new XElement("billAmount", amountInPaise));
+            billerResponseXml.Add(new XElement("billAmount", fetchBillAmountPaise));
             AddIfPresent("billDate");
             AddIfPresent("billNumber");
             AddIfPresent("billPeriod");
             AddIfPresent("customerName");
             AddIfPresent("dueDate");
 
+            // ✅ FIX: Only add <amountOptions> if there are actual options inside.
+            // Never send empty <amountOptions /> — BillAvenue returns 204 for FASTag when this empty tag is present.
             if (billerResponse.TryGetProperty("amountOptions", out var amountOptions))
             {
-                var amountOptionsXml = new XElement("amountOptions");
+                var optionsList = new List<JsonElement>();
 
-                IEnumerable<JsonElement> GetOptionsArray()
+                if (amountOptions.ValueKind == JsonValueKind.Object &&
+                    amountOptions.TryGetProperty("option", out var inner) &&
+                    inner.ValueKind == JsonValueKind.Array)
+                    optionsList.AddRange(inner.EnumerateArray());
+                else if (amountOptions.ValueKind == JsonValueKind.Array)
+                    optionsList.AddRange(amountOptions.EnumerateArray());
+
+                // Only add the XML element if there are real options — never send <amountOptions />
+                if (optionsList.Count > 0)
                 {
-                    if (amountOptions.ValueKind == JsonValueKind.Object &&
-                        amountOptions.TryGetProperty("option", out var inner) &&
-                        inner.ValueKind == JsonValueKind.Array)
-                        return inner.EnumerateArray();
-
-                    if (amountOptions.ValueKind == JsonValueKind.Array)
-                        return amountOptions.EnumerateArray();
-
-                    return System.Array.Empty<JsonElement>();
+                    var amountOptionsXml = new XElement("amountOptions");
+                    foreach (var option in optionsList)
+                    {
+                        amountOptionsXml.Add(
+                            new XElement("option",
+                                new XElement("amountName",
+                                    option.GetProperty("amountName").ToString()),
+                                new XElement("amountValue",
+                                    option.GetProperty("amountValue").ToString())
+                            )
+                        );
+                    }
+                    billerResponseXml.Add(amountOptionsXml);
                 }
-
-                foreach (var option in GetOptionsArray())
-                {
-                    amountOptionsXml.Add(
-                        new XElement("option",
-                            new XElement("amountName",
-                                option.GetProperty("amountName").ToString()),
-                            new XElement("amountValue",
-                                option.GetProperty("amountValue").ToString())
-                        )
-                    );
-                }
-
-                billerResponseXml.Add(amountOptionsXml);
+                // If empty — do NOT add <amountOptions /> at all
             }
 
             XElement additionalInfoXml = null;
@@ -175,15 +179,12 @@ namespace Payments_core.Helpers
                     billerResponseXml,
                     additionalInfoXml,
 
-                    new XElement("amountInfo",
-                        new XElement("amount", amountInPaise),
-                        new XElement("currency", "356"),
-                        new XElement("custConvFee", "0"),
-                        new XElement("amountTags",
-                            new XElement("amountTag", effectiveAmountTag),
-                            new XElement("value", amountInPaise.ToString())
-                        )
-                    ),
+                   new XElement("amountInfo",
+    new XElement("amount", amountInPaise),
+    new XElement("currency", "356"),
+    new XElement("custConvFee", "0")
+// ✅ No amountTags — BillAvenue says BASE_BILL_AMOUNT is unsupported for FASTag
+),
 
                     new XElement("paymentMethod",
                         new XElement("paymentMode", "Cash"),
@@ -202,7 +203,7 @@ namespace Payments_core.Helpers
                         ),
                         new XElement("info",
                             new XElement("infoName", "PaymentRefId"),
-                            new XElement("infoValue", requestId)
+                            new XElement("infoValue", fetchRequestId)  // ✅ FIX: use fetch requestId to link session
                         ),
                         new XElement("info",
                             new XElement("infoName", "Payment mode"),

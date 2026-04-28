@@ -1,4 +1,6 @@
-﻿using Dapper;
+﻿using System;
+using System.Collections.Generic;
+using Dapper;
 using Payments_core.Models.BBPS;
 using Payments_core.Services.DataLayer;
 using System.Data;
@@ -291,6 +293,26 @@ namespace Payments_core.Services.BBPSService.Repository
 
             return result.ToList();
         }
+
+        // ✅ NEW: Save biller input params to DB so we never call live MDM again for this biller
+        public async Task SaveBillerParams(string billerId, List<BbpsBillerInputParamDto> parameters)
+        {
+            foreach (var p in parameters)
+            {
+                await _db.ExecuteStoredAsync(
+                    "sp_bbps_save_biller_param",
+                    new
+                    {
+                        p_biller_id = billerId,
+                        p_param_name = p.ParamName,
+                        p_data_type = p.DataType,
+                        p_is_optional = p.IsOptional ? 1 : 0,
+                        p_min_length = p.MinLength,
+                        p_max_length = p.MaxLength,
+                        p_visibility = p.Visibility ? 1 : 0
+                    });
+            }
+        }
         public async Task<string?> GetBillRequestIdByTxnRef(string txnRefId)
         {
             var rows = await _db.GetData<string>(
@@ -320,7 +342,8 @@ namespace Payments_core.Services.BBPSService.Repository
         DateTime? from,
         DateTime? to)
         {
-            var result = await _db.GetData<BbpsTxnReportDto>(
+            // Use dynamic to avoid Dapper column-name mismatch when SP version differs from DTO.
+            var raw = await _db.GetData<dynamic>(
                 "sp_bbps_transaction_search",
                 new
                 {
@@ -330,7 +353,37 @@ namespace Payments_core.Services.BBPSService.Repository
                     p_to_date = to
                 });
 
-            return result.ToList();
+            return raw.Select(r =>
+            {
+                var d = (IDictionary<string, object>)r;
+                // REPLACE WITH:
+                T Get<T>(string key)
+                {
+                    foreach (var k in d.Keys)
+                        if (string.Equals(k, key, StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (d[k] == null || d[k] is DBNull) return default!;
+                            try { return (T)Convert.ChangeType(d[k], typeof(T)); }
+                            catch { return default!; }
+                        }
+                    return default!;
+                }
+                return new BbpsTxnReportDto
+                {
+                    BillerId = Get<string>("billerId"),
+                    BillerName = Get<string>("billerName") ?? Get<string>("biller_name"),
+                    BillerCategory = Get<string>("billerCategory"),
+                    Amount = Get<decimal>("amount"),
+                    TxnDate = Get<DateTime>("txnDate"),
+                    TxnReferenceId = Get<string>("txnReferenceId"),
+                    TxnStatus = Get<string>("txnStatus") ?? Get<string>("status"),
+                    ResponseCode = Get<string>("responseCode"),
+                    PaymentMode = Get<string>("paymentMode"),
+                    RequestId = Get<string>("requestId"),
+                    AgentName = Get<string>("agentName"),
+                    AgentMobile = Get<string>("agentMobile"),
+                };
+            }).ToList();
         }
 
         public async Task<dynamic?> GetReceiptRaw(string txnRefId)

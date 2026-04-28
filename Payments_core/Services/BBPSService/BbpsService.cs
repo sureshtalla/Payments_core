@@ -90,8 +90,8 @@ namespace Payments_core.Services.BBPSService
 
                 string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-                Console.WriteLine("===== FETCH DECRYPTED XML =====");
-                Console.WriteLine(decryptedXml);
+                Console.WriteLine("===== FETCH DECRYPTED XML (first 300 chars) =====");
+                Console.WriteLine(decryptedXml.Length > 300 ? decryptedXml.Substring(0, 300) : decryptedXml);
 
                 var parsed = BillAvenueXmlParser.ParseFetch(decryptedXml);
                 parsed.RequestId = requestId;
@@ -236,6 +236,13 @@ namespace Payments_core.Services.BBPSService
                 // Doc page 7: all amounts in paise
                 long amountInPaise = (long)(amount * 100);
 
+                // ✅ FIX: Always default amountTag to BASE_BILL_AMOUNT if null/empty
+                // BillAvenue requires a valid amountTag for adhoc billers (FASTag etc.)
+                if (string.IsNullOrWhiteSpace(amountTag))
+                    amountTag = "BASE_BILL_AMOUNT";
+
+                Console.WriteLine($"[PAY] EffectiveAmountTag={amountTag}");
+
                 // FIX Bug 2: Always use the same agentId that was used for fetch.
                 // Try by requestId first, then by billRequestId as fallback.
                 // Round-robin only if neither lookup finds a record (adhoc/quickpay).
@@ -307,7 +314,9 @@ namespace Payments_core.Services.BBPSService
 
                 Console.WriteLine($"[PAY] fetchAmount(paise)={fetchAmount}, amountInPaise={amountInPaise}");
 
-                if (fetchAmount != amountInPaise)
+                // ✅ FIX: For adhoc billers (FASTag, EV Recharge etc.) skip amount mismatch check.
+                // User can recharge any amount. For regular billers (Electricity) still enforce.
+                if (!isAdhoc && fetchAmount != amountInPaise)
                     throw new ApplicationException(
                         $"Amount mismatch. Fetch={fetchAmount}, Pay={amountInPaise}");
 
@@ -334,14 +343,16 @@ namespace Payments_core.Services.BBPSService
 
                     xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
                         cfg["InstituteId"],
-                        payRequestId,
+                        payRequestId,        // new unique pay requestId
+                        requestId,           // ✅ fetchRequestId — original fetch requestId
                         agentId,
                         billerId,
                         remitterName,
                         inputParams,
                         billerResponse.Value,
                         additionalInfo,
-                        amountInPaise,
+                        amountInPaise,       // ✅ custom recharge amount → amountInfo
+                        fetchAmount,         // ✅ original fetch amount → billerResponse
                         amountTag,
                         customerMobile,
                         deviceInfo
@@ -377,8 +388,9 @@ namespace Payments_core.Services.BBPSService
                     billRequestId = effectiveBillRequestId;
                 }
 
-                Console.WriteLine("---------- PAY XML ----------");
-                Console.WriteLine(xml);
+                // ✅ Log only first 200 chars of XML to save log space
+                Console.WriteLine("---------- PAY XML (first 200 chars) ----------");
+                Console.WriteLine(xml.Length > 200 ? xml.Substring(0, 200) : xml);
 
                 // --- Step 1: Hold wallet balance ---
                 walletTxnId = await _wallet.HoldAsync(
@@ -392,10 +404,14 @@ namespace Payments_core.Services.BBPSService
                 // --- Step 3: Send payment to BillAvenue ---
                 string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
+                // ✅ CRITICAL FIX: For adhoc MANDATORY fetch billers (FASTag),
+                // the form POST requestId MUST match the fetch requestId.
+                // BillAvenue looks up the fetch session using this requestId.
+                // Using payRequestId here causes 204 "No fetch data found".
                 var form = new Dictionary<string, string>
                 {
                     { "accessCode",  cfg["AccessCode"]  },
-                    { "requestId",   !isAdhoc ? (billRequestId ?? requestId) : payRequestId },
+                    { "requestId",   requestId          },  // ← always use fetch requestId
                     { "ver",         cfg["Version"]      },
                     { "instituteId", cfg["InstituteId"]  },
                     { "encRequest",  encRequest          }
@@ -406,8 +422,20 @@ namespace Payments_core.Services.BBPSService
 
                 string decryptedXml = BillAvenueCrypto.Decrypt(rawResponse, cfg["WorkingKey"]);
 
-                Console.WriteLine("---------- PAY RESPONSE ----------");
-                Console.WriteLine(decryptedXml);
+                // ✅ Log short summary first so it appears even if full XML gets cut off
+                var errorCode = "";
+                var errorMsg = "";
+                try
+                {
+                    var xdoc = System.Xml.Linq.XDocument.Parse(decryptedXml);
+                    errorCode = xdoc.Descendants("errorCode").FirstOrDefault()?.Value ?? "";
+                    errorMsg = xdoc.Descendants("errorMessage").FirstOrDefault()?.Value ?? "";
+                }
+                catch { }
+                Console.WriteLine($"[PAY][RESPONSE] CODE={decryptedXml.Substring(decryptedXml.IndexOf("<responseCode>") >= 0 ? decryptedXml.IndexOf("<responseCode>") + 14 : 0, 3)} ErrorCode={errorCode} ErrorMsg={errorMsg}");
+
+                Console.WriteLine("---------- PAY RESPONSE (first 500 chars) ----------");
+                Console.WriteLine(decryptedXml.Length > 500 ? decryptedXml.Substring(0, 500) : decryptedXml);
 
                 var dto = BillAvenueXmlParser.ParsePay(decryptedXml);
 
@@ -685,7 +713,23 @@ namespace Payments_core.Services.BBPSService
                     return new List<BbpsBillerInputParamDto>();
                 }
 
-                return BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
+                var parsedParams = BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
+
+                // ✅ FIX: Save to DB cache so next call is instant — no live MDM call every time
+                if (parsedParams != null && parsedParams.Any())
+                {
+                    try
+                    {
+                        await _repo.SaveBillerParams(billerId, parsedParams);
+                        Console.WriteLine($"[MDM] Params saved to DB for {billerId} — future calls will use cache");
+                    }
+                    catch (Exception saveEx)
+                    {
+                        Console.WriteLine($"[MDM] SaveBillerParams failed (non-critical): {saveEx.Message}");
+                    }
+                }
+
+                return parsedParams;
             }
             catch (Exception ex)
             {
@@ -693,10 +737,6 @@ namespace Payments_core.Services.BBPSService
                 return new List<BbpsBillerInputParamDto>();
             }
         }
-
-        // ---------------------------------------------------------
-        // GET BILLER BY ID
-        // ---------------------------------------------------------
         public async Task<BillerDto?> GetBillerById(string billerId)
         {
             return await _repo.GetBillerById(billerId);
@@ -756,13 +796,14 @@ namespace Payments_core.Services.BBPSService
                     dto.DueDate = GetValue("RespDueDate");
                     dto.ApprovalNumber = GetValue("approvalRefNumber");
 
+                    // RespAmount and CustConvFee come from BillAvenue XML in paise — divide by 100
                     var respAmount = GetValue("RespAmount");
                     if (decimal.TryParse(respAmount, out decimal billAmount))
-                        dto.BillAmount = billAmount;
+                        dto.BillAmount = billAmount / 100;
 
                     var ccf = GetValue("CustConvFee");
                     if (decimal.TryParse(ccf, out decimal ccfValue))
-                        dto.CCF = ccfValue;
+                        dto.CCF = ccfValue / 100;
 
                     dto.TotalAmount = dto.BillAmount + dto.CCF;
                     dto.MobileNumber = GetValue("customerMobile");

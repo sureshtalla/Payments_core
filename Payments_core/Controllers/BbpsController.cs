@@ -234,18 +234,31 @@ namespace Payments_core.Controllers
                 });
             }
         }
-       
+
         [HttpPost("search-transactions")]
         public async Task<IActionResult> SearchTransactions(
-         [FromBody] TxnSearchRequest request)
+     [FromBody] TxnSearchRequest request)
         {
-            var result = await _bbps.SearchTransactions(
-                request.TxnRefId,
-                request.Mobile,
-                request.FromDate,
-                request.ToDate);
+            try
+            {
+                var result = await _bbps.SearchTransactions(
+                    string.IsNullOrWhiteSpace(request.TxnRefId) ? null : request.TxnRefId,
+                    string.IsNullOrWhiteSpace(request.Mobile) ? null : request.Mobile,
+                    request.FromDate,
+                    request.ToDate);
 
-            return Ok(result);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    code = "SERVER_ERROR",
+                    message = ex.Message,
+                    detail = ex.InnerException?.Message
+                });
+            }
         }
 
         [HttpGet("receipt/{txnRefId}")]

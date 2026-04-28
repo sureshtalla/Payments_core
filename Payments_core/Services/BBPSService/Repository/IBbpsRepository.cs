@@ -27,20 +27,20 @@ namespace Payments_core.Services.BBPSService.Repository
 
         Task<string?> GetBillerCategory(string billerId);
 
-            Task SavePayment(
-            string requestId,
-            string billRequestId,
-            string txnRefId,
-            long userId,
-            decimal amount,
-            string status,
-            string responseCode,
-            string responseMessage,
-            string billerId,
-            string billerName,
-            string paymentMode,
-            string rawXml
-        );
+        Task SavePayment(
+        string requestId,
+        string billRequestId,
+        string txnRefId,
+        long userId,
+        decimal amount,
+        string status,
+        string responseCode,
+        string responseMessage,
+        string billerId,
+        string billerName,
+        string paymentMode,
+        string rawXml
+    );
 
         Task UpdateStatus(
             string txnRefId,
@@ -63,11 +63,12 @@ namespace Payments_core.Services.BBPSService.Repository
         Task<IEnumerable<(string TxnRefId, string BillRequestId)>> GetPendingTxns();
 
         Task UpsertBiller(BbpsBillerMaster biller);
-  
+
         Task UpsertBillerInputs(BbpsBillerDto biller);
 
         Task<BillerDto?> GetBillerById(string billerId);
         Task<List<BbpsBillerInputParamDto>> GetBillerParamsFromDb(string billerId);
+        Task SaveBillerParams(string billerId, List<BbpsBillerInputParamDto> parameters);
         Task<IEnumerable<string>> GetActiveBillerIds(string environment);
 
         //Task<IEnumerable<BbpsPendingTxnDto>> GetPendingTransactions();
