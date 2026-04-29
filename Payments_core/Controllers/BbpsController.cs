@@ -88,7 +88,8 @@ namespace Payments_core.Controllers
                     req.AmountTag,
                     req.Tpin,
                     req.CustomerMobile,
-                    req.RequestId
+                    req.RequestId,
+                    req.CustomerPan   // ✅ NEW: pass PAN to service
                 );
 
                 Console.WriteLine($"[PAY][CTRL] ResponseCode={res.ResponseCode}, TxnRefId={res.TxnRefId}");
@@ -269,22 +270,15 @@ namespace Payments_core.Controllers
         }
 
     }
-        // -------------------------------------------------
-        // REQUEST DTOs
-        // -------------------------------------------------
-        //public record FetchReq(
-        //    long UserId,
-        //    string BillerId,
-        //    Dictionary<string, string> Inputs
-        //);
-
-
-        public class FetchReq
+    // -------------------------------------------------
+    // REQUEST DTOs
+    // -------------------------------------------------
+    public class FetchReq
     {
-      public long UserId { get; set; }
-      public string BillerId { get; set; }
-      public Dictionary<string, string> Inputs { get; set; }
-      public CustomerInfo CustomerInfo { get; set; }
+        public long UserId { get; set; }
+        public string BillerId { get; set; }
+        public Dictionary<string, string> Inputs { get; set; }
+        public CustomerInfo CustomerInfo { get; set; }
     }
     public class PayReq
     {
@@ -293,15 +287,12 @@ namespace Payments_core.Controllers
         public Dictionary<string, string>? InputParams { get; set; }
         public string? BillRequestId { get; set; }
         public JsonElement? BillerResponse { get; set; }
-
         public JsonElement? AdditionalInfo { get; set; }
-
         public decimal Amount { get; set; }
         public string Tpin { get; set; } = string.Empty;
         public string CustomerMobile { get; set; } = string.Empty;
-
         public string? RequestId { get; set; }
-
         public string? AmountTag { get; set; }
+        public string? CustomerPan { get; set; }  // ✅ NEW: PAN mandatory for Cash >= 50000
     }
 }

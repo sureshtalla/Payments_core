@@ -192,8 +192,8 @@ namespace Payments_core.Services.BBPSService
         // Doc page 32: note 1 — same requestId for Fetch+Pay when Fetch is mandatory
         // Doc page 39: paymentMode = "Cash" for AGT channel
         // Doc page 7: all amounts in PAISE
+        // Doc page 23: PAN mandatory for Cash >= 50000
         // Wallet: Hold before pay, Finalize on SUCCESS, Release on FAIL/exception
-        // BillAvenue balance: check via Deposit Enquiry before sending payment
         // ---------------------------------------------------------
         public async Task<BbpsPayResponseDto> PayBill(
             long userId,
@@ -206,7 +206,8 @@ namespace Payments_core.Services.BBPSService
             string amountTag,
             string tpin,
             string customerMobile,
-            string requestId)
+            string requestId,
+            string? customerPan = null)   // ✅ PAN mandatory for Cash >= 50000
         {
             string walletTxnId = string.Empty;
 
@@ -223,6 +224,18 @@ namespace Payments_core.Services.BBPSService
                 if (string.IsNullOrWhiteSpace(customerMobile))
                     throw new ApplicationException("Customer mobile is required");
 
+                // ✅ PAN validation for Cash payments >= 50000
+                // Doc page 23: "For amounts > 50,000 and when payment mode is CASH, providing a PAN is mandatory"
+                // Doc page 45: Error E049 if PAN missing for >= 50k Cash transaction
+                if (amount >= 50000m)
+                {
+                    if (string.IsNullOrWhiteSpace(customerPan) || customerPan.Trim().Length != 10)
+                        throw new ApplicationException(
+                            "PAN number is mandatory for Cash payments of ₹50,000 or above. Please provide a valid 10-character PAN.");
+
+                    Console.WriteLine($"[PAY] High-value txn ₹{amount} — PAN provided: {customerPan.Trim().ToUpper()}");
+                }
+
                 var biller = await _repo.GetBillerById(billerId);
                 if (biller == null)
                     throw new ApplicationException("Invalid Biller");
@@ -236,14 +249,14 @@ namespace Payments_core.Services.BBPSService
                 // Doc page 7: all amounts in paise
                 long amountInPaise = (long)(amount * 100);
 
-                // ✅ FIX: Always default amountTag to BASE_BILL_AMOUNT if null/empty
+                // ✅ Always default amountTag to BASE_BILL_AMOUNT if null/empty
                 // BillAvenue requires a valid amountTag for adhoc billers (FASTag etc.)
                 if (string.IsNullOrWhiteSpace(amountTag))
                     amountTag = "BASE_BILL_AMOUNT";
 
                 Console.WriteLine($"[PAY] EffectiveAmountTag={amountTag}");
 
-                // FIX Bug 2: Always use the same agentId that was used for fetch.
+                // Always use the same agentId that was used for fetch.
                 // Try by requestId first, then by billRequestId as fallback.
                 // Round-robin only if neither lookup finds a record (adhoc/quickpay).
                 string agentId = await _repo.GetAgentIdByRequestId(requestId);
@@ -314,7 +327,7 @@ namespace Payments_core.Services.BBPSService
 
                 Console.WriteLine($"[PAY] fetchAmount(paise)={fetchAmount}, amountInPaise={amountInPaise}");
 
-                // ✅ FIX: For adhoc billers (FASTag, EV Recharge etc.) skip amount mismatch check.
+                // ✅ For adhoc billers (FASTag, EV Recharge etc.) skip amount mismatch check.
                 // User can recharge any amount. For regular billers (Electricity) still enforce.
                 if (!isAdhoc && fetchAmount != amountInPaise)
                     throw new ApplicationException(
@@ -325,13 +338,18 @@ namespace Payments_core.Services.BBPSService
                 // IP comes from the real server. initChannel = AGT for B2B.
                 var deviceInfo = new AgentDeviceInfo
                 {
-                    Ip = "192.168.2.73",   // replace with real server IP from env/config if available
+                    Ip = "192.168.2.73",
                     InitChannel = "AGT",
                     Mac = "01-23-45-67-89-ab"
                 };
 
                 // Doc page 23: Remitter Name from config
                 string remitterName = cfg["RemitterName"] ?? "MANICORE PRIVATE LIMITED";
+
+                // Normalize PAN — uppercase, trimmed
+                string effectivePan = string.IsNullOrWhiteSpace(customerPan)
+                    ? ""
+                    : customerPan.Trim().ToUpper();
 
                 // --- Build payment XML ---
                 string xml;
@@ -341,21 +359,27 @@ namespace Payments_core.Services.BBPSService
                     if (inputParams == null || billerResponse == null)
                         throw new ApplicationException("Adhoc payment requires inputParams & billerResponse");
 
+                    // ✅ Always Cash for AGT channel B2B
+                    string paymentMode = "Cash";
+                    Console.WriteLine($"[PAY] PaymentMode=Cash (AGT channel B2B only)");
+
                     xml = BillAvenueXmlBuilder.BuildAdhocPayXml(
                         cfg["InstituteId"],
-                        payRequestId,        // new unique pay requestId
-                        requestId,           // ✅ fetchRequestId — original fetch requestId
+                        payRequestId,
+                        requestId,
                         agentId,
                         billerId,
                         remitterName,
                         inputParams,
                         billerResponse.Value,
                         additionalInfo,
-                        amountInPaise,       // ✅ custom recharge amount → amountInfo
-                        fetchAmount,         // ✅ original fetch amount → billerResponse
+                        amountInPaise,
+                        fetchAmount,
                         amountTag,
                         customerMobile,
-                        deviceInfo
+                        deviceInfo,
+                        paymentMode,
+                        effectivePan
                     );
                 }
                 else
@@ -369,8 +393,6 @@ namespace Payments_core.Services.BBPSService
 
                     Console.WriteLine($"[PAY] Regular pay using billRequestId={effectiveBillRequestId}");
 
-                    // FIX Bug 1: pass fetchAmount (original paise from fetch) as fetchBillAmountPaise
-                    // so billerResponse in XML matches what BillAvenue stored during fetch.
                     xml = BillAvenueXmlBuilder.BuildRegularPayXml(
                         agentId,
                         billerId,
@@ -382,7 +404,8 @@ namespace Payments_core.Services.BBPSService
                         customerMobile,
                         deviceInfo,
                         inputParams,
-                        billerResponse
+                        billerResponse,
+                        effectivePan
                     );
 
                     billRequestId = effectiveBillRequestId;
@@ -404,14 +427,47 @@ namespace Payments_core.Services.BBPSService
                 // --- Step 3: Send payment to BillAvenue ---
                 string encRequest = BillAvenueCrypto.Encrypt(xml, cfg["WorkingKey"]);
 
-                // ✅ CRITICAL FIX: For adhoc MANDATORY fetch billers (FASTag),
-                // the form POST requestId MUST match the fetch requestId.
-                // BillAvenue looks up the fetch session using this requestId.
-                // Using payRequestId here causes 204 "No fetch data found".
+                // ✅ CRITICAL FIX for E210 "No fetch data found" error
+                // ---------------------------------------------------------
+                // BillAvenue stores fetch session data indexed by the fetch requestId.
+                // For ALL billers with MANDATORY fetch (both adhoc and non-adhoc),
+                // the form POST requestId MUST be the FETCH requestId so BillAvenue
+                // can look up the fetch session correctly.
+                //
+                // payRequestId (new unique ID) goes INSIDE the XML body only as
+                // <PaymentRefId> tag — it is the unique pay transaction reference.
+                //
+                // Previous wrong logic:
+                //   !isAdhoc ? (billRequestId ?? requestId) : payRequestId
+                // This was sending payRequestId for adhoc billers (FASTag, Credit Card)
+                // which caused E210 every time because BillAvenue could not find the
+                // fetch session under that unknown payRequestId.
+                //
+                // Fix:
+                // - Non-adhoc (Electricity etc.) → use billRequestId in form POST
+                // - Adhoc (FASTag, Credit Card) → use fetch requestId in form POST
+                //   NOT payRequestId (that was causing E210)
+                // ---------------------------------------------------------
+                string formRequestId;
+                if (!isAdhoc)
+                {
+                    // Regular billers — use billRequestId to link fetch session
+                    formRequestId = billRequestId ?? requestId;
+                }
+                else
+                {
+                    // ✅ Adhoc billers (FASTag, Credit Card) with MANDATORY fetch
+                    // MUST use fetch requestId so BillAvenue finds the fetch session
+                    // payRequestId is inside XML body as PaymentRefId — NOT here
+                    formRequestId = requestId;  // ← fetch requestId, NOT payRequestId
+                }
+
+                Console.WriteLine($"[PAY] Form POST requestId={formRequestId} (fetchRequestId={requestId}, payRequestId={payRequestId}, isAdhoc={isAdhoc})");
+
                 var form = new Dictionary<string, string>
                 {
                     { "accessCode",  cfg["AccessCode"]  },
-                    { "requestId",   requestId          },  // ← always use fetch requestId
+                    { "requestId",   formRequestId       },  // ✅ FIXED: always fetch requestId
                     { "ver",         cfg["Version"]      },
                     { "instituteId", cfg["InstituteId"]  },
                     { "encRequest",  encRequest          }
@@ -715,7 +771,7 @@ namespace Payments_core.Services.BBPSService
 
                 var parsedParams = BillAvenueXmlParser.ParseBillerInputParams(decryptedXml);
 
-                // ✅ FIX: Save to DB cache so next call is instant — no live MDM call every time
+                // ✅ Save to DB cache so next call is instant — no live MDM call every time
                 if (parsedParams != null && parsedParams.Any())
                 {
                     try
@@ -737,6 +793,7 @@ namespace Payments_core.Services.BBPSService
                 return new List<BbpsBillerInputParamDto>();
             }
         }
+
         public async Task<BillerDto?> GetBillerById(string billerId)
         {
             return await _repo.GetBillerById(billerId);
@@ -821,8 +878,6 @@ namespace Payments_core.Services.BBPSService
         // DEPOSIT ENQUIRY — CHECK BILLAVENUE MAIN ACCOUNT BALANCE
         // Doc page 76: Deposit Enquiry API
         // Returns balance in rupees (e.g. 252000.00)
-        // FIX Bug 5: throw on failure instead of returning MaxValue —
-        // silently allowing payment with unknown balance causes real money loss.
         // ---------------------------------------------------------
         private async Task<decimal> GetBillAvenueBalance(
             IConfigurationSection cfg, string agentId)
@@ -856,7 +911,6 @@ namespace Payments_core.Services.BBPSService
             catch (Exception ex)
             {
                 // Deposit Enquiry API is unreliable — log and allow payment to proceed.
-                // Do NOT block payment just because the enquiry call failed.
                 Console.WriteLine($"[DEPOSIT ENQUIRY ERROR] {ex.Message} — allowing payment to proceed");
                 return decimal.MaxValue;
             }

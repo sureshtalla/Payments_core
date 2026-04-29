@@ -21,22 +21,17 @@ namespace Payments_core.Helpers
         {
             var doc = new XDocument(
                 new XElement("billFetchRequest",
-
                     new XElement("agentId", agentId),
-
                     new XElement("agentDeviceInfo",
                         new XElement("ip", deviceInfo.Ip),
                         new XElement("initChannel", deviceInfo.InitChannel),
                         new XElement("mac", deviceInfo.Mac)
                     ),
-
                     new XElement("customerInfo",
                         new XElement("customerMobile", customerInfo.CustomerMobile ?? ""),
                         new XElement("customerEmail", customerInfo.CustomerEmail ?? "")
                     ),
-
                     new XElement("billerId", billerId),
-
                     new XElement("inputParams",
                         inputParams.Select(kv =>
                             new XElement("input",
@@ -47,29 +42,32 @@ namespace Payments_core.Helpers
                     )
                 )
             );
-
             return doc.ToString(SaveOptions.DisableFormatting);
         }
 
         // =============================================================
         // ADHOC PAY  (billerAdhoc = true)
+        // FASTag, EV Recharge etc.
+        // ✅ customerPan added — mandatory for Cash >= 50000 (doc page 23)
         // =============================================================
         public static string BuildAdhocPayXml(
-     string instituteId,
-     string requestId,
-     string fetchRequestId,
-     string agentId,
-     string billerId,
-     string remitterName,
-     Dictionary<string, string> inputParams,
-     JsonElement billerResponse,
-     JsonElement? additionalInfo,
-     long amountInPaise,          // ← custom recharge amount → goes to <amountInfo>
-     long fetchBillAmountPaise,   // ← ADD THIS: original fetch amount → goes to <billerResponse>
-     string amountTag,
-     string customerMobile,
-     AgentDeviceInfo deviceInfo
- )
+            string instituteId,
+            string requestId,        // payRequestId — new unique ID for this pay transaction
+            string fetchRequestId,   // original fetch requestId — used as PaymentRefId
+            string agentId,
+            string billerId,
+            string remitterName,
+            Dictionary<string, string> inputParams,
+            JsonElement billerResponse,
+            JsonElement? additionalInfo,
+            long amountInPaise,          // custom recharge amount → goes to <amountInfo>
+            long fetchBillAmountPaise,   // original fetch amount → goes to <billerResponse>
+            string amountTag,
+            string customerMobile,
+            AgentDeviceInfo deviceInfo,
+            string paymentMode = "Cash", // default Cash for AGT channel
+            string customerPan = ""      // ✅ NEW: PAN mandatory for Cash >= 50000
+        )
         {
             var inputElements = new XElement("inputParams");
             foreach (var kv in inputParams)
@@ -83,6 +81,7 @@ namespace Payments_core.Helpers
             }
 
             var billerResponseXml = new XElement("billerResponse");
+
             void AddIfPresent(string name)
             {
                 if (billerResponse.TryGetProperty(name, out var val))
@@ -103,7 +102,7 @@ namespace Payments_core.Helpers
             AddIfPresent("dueDate");
 
             // ✅ FIX: Only add <amountOptions> if there are actual options inside.
-            // Never send empty <amountOptions /> — BillAvenue returns 204 for FASTag when this empty tag is present.
+            // Never send empty <amountOptions /> — BillAvenue returns 204 for FASTag.
             if (billerResponse.TryGetProperty("amountOptions", out var amountOptions))
             {
                 var optionsList = new List<JsonElement>();
@@ -115,7 +114,6 @@ namespace Payments_core.Helpers
                 else if (amountOptions.ValueKind == JsonValueKind.Array)
                     optionsList.AddRange(amountOptions.EnumerateArray());
 
-                // Only add the XML element if there are real options — never send <amountOptions />
                 if (optionsList.Count > 0)
                 {
                     var amountOptionsXml = new XElement("amountOptions");
@@ -145,10 +143,8 @@ namespace Payments_core.Helpers
                 {
                     additionalInfoXml.Add(
                         new XElement("info",
-                            new XElement("infoName",
-                                info.GetProperty("infoName").ToString()),
-                            new XElement("infoValue",
-                                info.GetProperty("infoValue").ToString())
+                            new XElement("infoName", info.GetProperty("infoName").ToString()),
+                            new XElement("infoValue", info.GetProperty("infoValue").ToString())
                         )
                     );
                 }
@@ -158,40 +154,43 @@ namespace Payments_core.Helpers
                 ? "BASE_BILL_AMOUNT"
                 : amountTag;
 
+            string effectivePaymentMode = string.IsNullOrWhiteSpace(paymentMode)
+                ? "Cash"
+                : paymentMode;
+
+            // ✅ Build customerInfo element — add PAN only if provided
+            // Doc page 23: customerPan mandatory for Cash >= 50000
+            var customerInfoXml = new XElement("customerInfo",
+                new XElement("customerMobile", customerMobile)
+            );
+            if (!string.IsNullOrWhiteSpace(customerPan))
+                customerInfoXml.Add(new XElement("customerPan", customerPan.ToUpper()));
+
             var doc = new XDocument(
                 new XElement("billPaymentRequest",
-
                     new XElement("agentId", agentId),
                     new XElement("billerAdhoc", "true"),
-
                     new XElement("agentDeviceInfo",
                         new XElement("ip", deviceInfo.Ip),
                         new XElement("initChannel", deviceInfo.InitChannel),
                         new XElement("mac", deviceInfo.Mac)
                     ),
-
-                    new XElement("customerInfo",
-                        new XElement("customerMobile", customerMobile)
-                    ),
-
+                    customerInfoXml,   // ✅ includes PAN if present
                     new XElement("billerId", billerId),
                     inputElements,
                     billerResponseXml,
                     additionalInfoXml,
-
-                   new XElement("amountInfo",
-    new XElement("amount", amountInPaise),
-    new XElement("currency", "356"),
-    new XElement("custConvFee", "0")
-// ✅ No amountTags — BillAvenue says BASE_BILL_AMOUNT is unsupported for FASTag
-),
-
+                    new XElement("amountInfo",
+                        new XElement("amount", amountInPaise),
+                        new XElement("currency", "356"),
+                        new XElement("custConvFee", "0")
+                    // ✅ No amountTags — BillAvenue AMT022 error for FASTag
+                    ),
                     new XElement("paymentMethod",
-                        new XElement("paymentMode", "Cash"),
+                        new XElement("paymentMode", effectivePaymentMode),
                         new XElement("quickPay", "N"),
                         new XElement("splitPay", "N")
                     ),
-
                     new XElement("paymentInfo",
                         new XElement("info",
                             new XElement("infoName", "Remitter Name"),
@@ -203,11 +202,11 @@ namespace Payments_core.Helpers
                         ),
                         new XElement("info",
                             new XElement("infoName", "PaymentRefId"),
-                            new XElement("infoValue", fetchRequestId)  // ✅ FIX: use fetch requestId to link session
+                            new XElement("infoValue", fetchRequestId)
                         ),
                         new XElement("info",
                             new XElement("infoName", "Payment mode"),
-                            new XElement("infoValue", "Cash")
+                            new XElement("infoValue", effectivePaymentMode)
                         )
                     )
                 )
@@ -218,10 +217,7 @@ namespace Payments_core.Helpers
 
         // =============================================================
         // REGULAR PAY  (billerAdhoc = false)
-        // FIX Bug 1: added fetchBillAmountPaise parameter — billerResponse
-        // in the payment XML must contain the original paise value that
-        // BillAvenue stored during fetch, not the user-selected amount.
-        // Without this BillAvenue returns E211 billerResponse value mismatch.
+        // ✅ customerPan added — mandatory for Cash >= 50000 (doc page 23)
         // =============================================================
         public static string BuildRegularPayXml(
             string agentId,
@@ -234,7 +230,8 @@ namespace Payments_core.Helpers
             string customerMobile,
             AgentDeviceInfo deviceInfo,
             Dictionary<string, string>? inputParams,
-            JsonElement? billerResponse
+            JsonElement? billerResponse,
+            string customerPan = ""   // ✅ NEW: PAN mandatory for Cash >= 50000
         )
         {
             var inputElements = new XElement("inputParams");
@@ -244,8 +241,6 @@ namespace Payments_core.Helpers
                         new XElement("paramName", kv.Key),
                         new XElement("paramValue", kv.Value)));
 
-            // FIX Bug 1: use fetchBillAmountPaise here, not amount.
-            // BillAvenue validates this value against their stored fetch record.
             var billerResponseXml = new XElement("billerResponse",
                 new XElement("billAmount", fetchBillAmountPaise));
 
@@ -267,38 +262,37 @@ namespace Payments_core.Helpers
                 AddIfPresent("dueDate");
             }
 
+            // ✅ Build customerInfo element — add PAN only if provided
+            // Doc page 23: customerPan mandatory for Cash >= 50000
+            var customerInfoXml = new XElement("customerInfo",
+                new XElement("customerMobile", customerMobile)
+            );
+            if (!string.IsNullOrWhiteSpace(customerPan))
+                customerInfoXml.Add(new XElement("customerPan", customerPan.ToUpper()));
+
             var doc = new XDocument(
                 new XElement("billPaymentRequest",
-
                     new XElement("agentId", agentId),
                     new XElement("billerAdhoc", "false"),
-
                     new XElement("agentDeviceInfo",
                         new XElement("ip", deviceInfo.Ip),
                         new XElement("initChannel", deviceInfo.InitChannel),
                         new XElement("mac", deviceInfo.Mac)
                     ),
-
-                    new XElement("customerInfo",
-                        new XElement("customerMobile", customerMobile)
-                    ),
-
+                    customerInfoXml,   // ✅ includes PAN if present
                     new XElement("billerId", billerId),
                     inputElements,
                     billerResponseXml,
-
                     new XElement("amountInfo",
                         new XElement("amount", amount),
                         new XElement("currency", "356"),
                         new XElement("custConvFee", "0")
                     ),
-
                     new XElement("paymentMethod",
                         new XElement("paymentMode", "Cash"),
                         new XElement("quickPay", "N"),
                         new XElement("splitPay", "N")
                     ),
-
                     new XElement("paymentInfo",
                         new XElement("info",
                             new XElement("infoName", "Remitter Name"),
@@ -334,73 +328,25 @@ namespace Payments_core.Helpers
                     new XElement("trackValue", txnRefId)
                 )
             );
-
             return doc.ToString(SaveOptions.DisableFormatting);
         }
 
-        // =============================================================
-        // MDM — BILLER INFO REQUEST
-        // =============================================================
-        public static string BuildBillerInfoRequest(string billerId)
-        {
-            return
-                "<billerInfoRequest>" +
-                $"<billerId>{billerId}</billerId>" +
-                "</billerInfoRequest>";
-        }
+        public static string BuildBillerInfoRequest(string billerId) =>
+            $"<billerInfoRequest><billerId>{billerId}</billerId></billerInfoRequest>";
 
-        // =============================================================
-        // MDM — BILLER PARAMS REQUEST
-        // =============================================================
-        public static string BuildBillerParamsRequestXml(string billerId)
-        {
-            return
-                "<billerInfoRequest>" +
-                $"<billerId>{billerId}</billerId>" +
-                "</billerInfoRequest>";
-        }
+        public static string BuildBillerParamsRequestXml(string billerId) =>
+            $"<billerInfoRequest><billerId>{billerId}</billerId></billerInfoRequest>";
 
-        // =============================================================
-        // BILL VALIDATION
-        // =============================================================
-        public static string BuildBillValidationXml(
-            string agentId,
-            string billerId,
-            Dictionary<string, string> inputParams)
+        public static string BuildBillValidationXml(string agentId, string billerId, Dictionary<string, string> inputParams)
         {
             var inputs = new XElement("inputParams");
             foreach (var kv in inputParams)
-            {
-                inputs.Add(
-                    new XElement("input",
-                        new XElement("paramName", kv.Key),
-                        new XElement("paramValue", kv.Value)
-                    )
-                );
-            }
-
-            var doc = new XDocument(
-                new XElement("billValidationRequest",
-                    new XElement("agentId", agentId),
-                    new XElement("billerId", billerId),
-                    inputs
-                )
-            );
-
+                inputs.Add(new XElement("input", new XElement("paramName", kv.Key), new XElement("paramValue", kv.Value)));
+            var doc = new XDocument(new XElement("billValidationRequest", new XElement("agentId", agentId), new XElement("billerId", billerId), inputs));
             return doc.ToString(SaveOptions.DisableFormatting);
         }
 
-        // =============================================================
-        // DEPOSIT ENQUIRY
-        // =============================================================
-        public static string BuildDepositEnquiryXml(string agentId)
-        {
-            return
-                "<depositDetailsRequest>" +
-                "<agents>" +
-                $"<agentId>{agentId}</agentId>" +
-                "</agents>" +
-                "</depositDetailsRequest>";
-        }
+        public static string BuildDepositEnquiryXml(string agentId) =>
+            $"<depositDetailsRequest><agents><agentId>{agentId}</agentId></agents></depositDetailsRequest>";
     }
 }

@@ -25,7 +25,8 @@ namespace Payments_core.Services.BBPSService
          string amountTag,
          string tpin,
          string customerMobile,
-         string requestId
+         string requestId,
+           string? customerPan = null
      );
 
         Task<BillerDto?> GetBillerById(string billerId);
