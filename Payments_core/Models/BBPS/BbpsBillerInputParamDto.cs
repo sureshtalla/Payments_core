@@ -8,5 +8,6 @@
         public int MinLength { get; set; }
         public int MaxLength { get; set; }
         public bool Visibility { get; set; }
+        public string Regex { get; set; }
     }
 }

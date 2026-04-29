@@ -208,26 +208,39 @@ namespace Payments_core.Helpers
 
             return doc
                 .Descendants(ns + "paramInfo")
-                .Select(x => new BbpsBillerInputParamDto
+                .Select(x =>
                 {
-                    ParamName = x.Element(ns + "paramName")?.Value?.Trim(),
-                    DataType = x.Element(ns + "dataType")?.Value,
-                    IsOptional = string.Equals(
-                                     x.Element(ns + "isOptional")?.Value,
-                                     "true",
-                                     StringComparison.OrdinalIgnoreCase),
-                    MinLength = int.Parse(x.Element(ns + "minLength")?.Value ?? "0"),
-                    MaxLength = int.Parse(x.Element(ns + "maxLength")?.Value ?? "0"),
-                    Visibility = string.Equals(
-                                     x.Element(ns + "visibility")?.Value,
-                                     "true",
-                                     StringComparison.OrdinalIgnoreCase)
+                    // ✅ FIX: Default visibility to TRUE if <visibility> tag is missing
+                    // Some billers like ManipalCigna Health Insurance do not include
+                    // the <visibility> tag at all in their MDM response.
+                    // Old code: string.Equals(visValue, "true") → returns false when tag missing
+                    // New code: if tag is missing or empty → treat as visible (true)
+                    var visibilityStr = x.Element(ns + "visibility")?.Value;
+                    bool isVisible = string.IsNullOrWhiteSpace(visibilityStr)
+                        ? true  // ← missing tag = show the field
+                        : string.Equals(visibilityStr, "true", StringComparison.OrdinalIgnoreCase);
+
+                    return new BbpsBillerInputParamDto
+                    {
+                        ParamName = x.Element(ns + "paramName")?.Value?.Trim(),
+                        DataType = x.Element(ns + "dataType")?.Value,
+                        IsOptional = string.Equals(
+                                         x.Element(ns + "isOptional")?.Value,
+                                         "true",
+                                         StringComparison.OrdinalIgnoreCase),
+                        MinLength = int.TryParse(x.Element(ns + "minLength")?.Value, out var mn) ? mn : 0,
+                        MaxLength = int.TryParse(x.Element(ns + "maxLength")?.Value, out var mx) ? mx : 0,
+                        Regex = x.Element(ns + "regEx")?.Value,
+                        Visibility = isVisible
+                    };
                 })
+                // ✅ FIX: Removed p.Visibility filter — visibility now defaults to true above
+                // ✅ FIX: Removed p.MaxLength > 0 filter — some billers set maxLength=0
+                //         meaning "no limit". We still want to show those fields.
+                //         Frontend validator only adds maxLength rule if maxLength > 0.
                 .Where(p =>
-                    p.Visibility &&
                     !string.IsNullOrWhiteSpace(p.ParamName) &&
-                    !string.IsNullOrWhiteSpace(p.DataType) &&
-                    p.MaxLength > 0)
+                    !string.IsNullOrWhiteSpace(p.DataType))
                 .GroupBy(p => p.ParamName)
                 .Select(g => g.First())
                 .ToList();
