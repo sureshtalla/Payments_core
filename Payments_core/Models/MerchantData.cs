@@ -99,7 +99,9 @@
 
     public class LedgerReport
     {
+        public string ReferenceId { get; set; } = "-";
         public DateTime TransactionDate { get; set; }
+        public int SourceType { get; set; }
         public required string TransactionType { get; set; }
         public decimal Amount { get; set; }
         public decimal Charges { get; set; }
@@ -107,6 +109,8 @@
         public decimal GST { get; set; }
         public decimal TDS { get; set; }
         public decimal Balance { get; set; }
+        public string Narration { get; set; } = "-";
+        public string Status { get; set; } = "SUCCESS";
     }
 
     public enum PayoutMode
