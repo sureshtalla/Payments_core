@@ -9,7 +9,6 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-// Add this using at the top
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace Payments_core.Controllers
@@ -51,7 +50,6 @@ namespace Payments_core.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-
         private string GenerateSecureRefreshToken()
         {
             var randomBytes = new byte[64];
@@ -81,6 +79,7 @@ namespace Payments_core.Controllers
 
             return Ok(new { user_id = result, message = "Registered successfully" });
         }
+
         [EnableRateLimiting("login")]
         [HttpPost("login")]
         [AllowAnonymous]
@@ -160,6 +159,24 @@ namespace Payments_core.Controllers
             if (string.IsNullOrWhiteSpace(user.mobile))
                 return StatusCode(500, "User mobile not configured");
 
+            // ================================================================
+            // DEMO USER — skip SMS only, OTP saved to DB normally
+            // Remove this block before production
+            // ================================================================
+            if (request.UserName.Trim().ToLower() == "demo")
+            {
+                var demoSessionId = await otpDataService.SaveDemoOtpAsync(user.Id, user.mobile);
+                return Ok(new
+                {
+                    message = "OTP sent successfully.",
+                    user_id = user.Id,
+                    session_id = demoSessionId
+                });
+            }
+            // ================================================================
+            // END DEMO USER
+            // ================================================================
+
             // Generate OTP
             var (otp, sessionId) = await otpDataService.GenerateOtpAsync(
                 user.Id,
@@ -187,6 +204,7 @@ namespace Payments_core.Controllers
                 session_id = sessionId
             });
         }
+
         [EnableRateLimiting("otp")]
         [HttpPost("verify-otp")]
         [AllowAnonymous]
@@ -228,7 +246,6 @@ namespace Payments_core.Controllers
             );
 
             // 🔐 Store refresh token in HttpOnly Cookie
-
             Response.Cookies.Append("refreshToken", refreshToken, new CookieOptions
             {
                 HttpOnly = true,
@@ -254,7 +271,6 @@ namespace Payments_core.Controllers
                 }
             });
         }
-
 
         [HttpPost("refresh-token")]
         [AllowAnonymous]
@@ -295,7 +311,7 @@ namespace Payments_core.Controllers
             Response.Cookies.Append("refreshToken", newRefreshToken, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,      // DEV
+                Secure = true,
                 SameSite = SameSiteMode.None,
                 Expires = DateTime.UtcNow.AddDays(7)
             });
@@ -340,6 +356,7 @@ namespace Payments_core.Controllers
             var result = await userDataService.GetUserManagementProfile();
             return Ok(result);
         }
+
         [HttpPut("profile/managestatus")]
         public async Task<IActionResult> ManageUserStatus([FromBody] ManageUserStatusRequest request)
         {
@@ -352,9 +369,7 @@ namespace Payments_core.Controllers
                 });
             }
 
-            var success = await userDataService.ManageUserStatusAsync(
-                request
-            );
+            var success = await userDataService.ManageUserStatusAsync(request);
 
             return Ok(new
             {
@@ -413,6 +428,7 @@ namespace Payments_core.Controllers
 
             return Ok(new { message = "TIN updated successfully" });
         }
+
         [EnableRateLimiting("otp")]
         [HttpPost("send-otp")]
         public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
@@ -426,11 +442,6 @@ namespace Payments_core.Controllers
 
             if (result)
             {
-                //return Ok(new
-                //{
-                //    message = "OTP sent successfully.",
-
-                //});
                 return Ok(new
                 {
                     message = "Password verified. OTP sent.",
@@ -443,7 +454,6 @@ namespace Payments_core.Controllers
                 return Ok(new
                 {
                     message = "OTP could not be sent. Please try again.",
-
                 });
             }
         }

@@ -21,7 +21,7 @@ namespace Payments_core.Services.UserDataService
             string otp = GenerateSecureOtp();
             string sessionId = Guid.NewGuid().ToString("N");
 
-            string otpHash = BCrypt.Net.BCrypt.HashPassword(otp);
+            string otpHash = BCrypt.Net.BCrypt.HashPassword(otp, 4);
 
             var param = new DynamicParameters();
             param.Add("p_user_id", userId);
@@ -34,7 +34,23 @@ namespace Payments_core.Services.UserDataService
 
             return (otp, sessionId);
         }
+        // DEMO ONLY — remove before production
+        public async Task<string> SaveDemoOtpAsync(long userId, string mobile)
+        {
+            string sessionId = Guid.NewGuid().ToString("N");
+            string otpHash = BCrypt.Net.BCrypt.HashPassword("000000", 4);
 
+            var param = new DynamicParameters();
+            param.Add("p_user_id", userId);
+            param.Add("p_mobile", mobile);
+            param.Add("p_otp_hash", otpHash);
+            param.Add("p_expiry", DateTime.UtcNow.AddMinutes(10));
+            param.Add("p_login_session_id", sessionId);
+
+            await _dbContext.SetData("sp_save_login_otp_secure", param);
+
+            return sessionId;
+        }
         // ==============================
         // VERIFY OTP
         // ==============================

@@ -8,5 +8,7 @@
         Task<(string Otp, string SessionId)> GenerateOtpAsync(long userId, string mobile);
 
         Task<bool> VerifyOtpAsync(long userId, string sessionId, string inputOtp);
+        // DEMO ONLY — remove before production
+        Task<string> SaveDemoOtpAsync(long userId, string mobile);
     }
 }
