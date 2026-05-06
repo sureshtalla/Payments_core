@@ -73,7 +73,8 @@ namespace Payments_core
                             "http://localhost:4200",
                             "https://merchant.fastcashfnx.in",
                             "https://www.fuzioniq.in",
-                            "https://fuzioniq.in"
+                            "https://fuzioniq.in",
+                            "https://manicoreapiserver.com"
                           )
                           .AllowAnyMethod()
                           .AllowAnyHeader()
